@@ -25,6 +25,13 @@ LANE_ALIASES = {
     "utility": "UTILITY", "support": "UTILITY", "supp": "UTILITY", "sup": "UTILITY", "util": "UTILITY",
 }
 
+# Riot'un ic verisinde BOTTOM/UTILITY yazsa da, oyuncular bu rolleri
+# ADC/SUPPORT olarak bilir - kullaniciya gosterirken bunu kullaniyoruz.
+DISPLAY_LANE_LABELS = {
+    "TOP": "TOP", "JUNGLE": "JUNGLE", "MIDDLE": "MID",
+    "BOTTOM": "ADC", "UTILITY": "SUPPORT",
+}
+
 model1_table = pd.read_parquet("data/processed/model1_counter_features.parquet")
 
 # Sampiyon adini buyuk/kucuk harf duyarsiz eslestirebilmek icin:
@@ -44,8 +51,7 @@ def normalize_champion(raw_name):
 
 
 print("Model 1: Counter Pick Recommendation Engine")
-print("Lane icin kisaltma/rol adi da yazabilirsin: top, jungle/jg/jung, "
-      "mid/middle, bot/adc, support/supp/utility")
+print("Lane: top, jungle/jg, mid, adc, support (kisaltmalari da kabul eder)")
 print("Sampiyon adinda buyuk/kucuk harf onemli degil (orn. 'malzahar' calisir). "
       "Bosluksuz yazman lazim: KSante, DrMundo, AurelionSol, MonkeyKing (Wukong).")
 print("Cikmak icin bos birak ve Enter'a bas.")
@@ -71,7 +77,7 @@ while True:
     result = recommend_counters(model1_table, enemy, lane, top_n=5)
 
     if result.empty:
-        print(f"'{enemy}' ({lane}) icin yeterli veri bulunamadi. "
+        print(f"'{enemy}' ({DISPLAY_LANE_LABELS[lane]}) icin yeterli veri bulunamadi. "
               "Bu sampiyon bu lane'de az oynanmis olabilir.\n")
         continue
 
