@@ -14,30 +14,65 @@ pd.set_option("display.width", 200)
 
 VALID_LANES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
+# Kullanicilar lane'i genelde kisaltma/rol adiyla yazar (mid, jung, adc,
+# support gibi), Riot'un ic ismini (MIDDLE, JUNGLE, BOTTOM, UTILITY)
+# degil. Hepsini kabul edip dogru degere ceviriyoruz.
+LANE_ALIASES = {
+    "top": "TOP",
+    "jungle": "JUNGLE", "jg": "JUNGLE", "jng": "JUNGLE", "jgl": "JUNGLE", "jung": "JUNGLE",
+    "middle": "MIDDLE", "mid": "MIDDLE",
+    "bottom": "BOTTOM", "bot": "BOTTOM", "adc": "BOTTOM", "ad carry": "BOTTOM", "carry": "BOTTOM",
+    "utility": "UTILITY", "support": "UTILITY", "supp": "UTILITY", "sup": "UTILITY", "util": "UTILITY",
+}
+
 model1_table = pd.read_parquet("data/processed/model1_counter_features.parquet")
 
+# Sampiyon adini buyuk/kucuk harf duyarsiz eslestirebilmek icin:
+# "malzahar" -> "Malzahar" gibi bir sozluk kuruyoruz.
+all_champions = pd.concat([model1_table["ChampionName"], model1_table["ChampionName_opp"]]).unique()
+CHAMPION_LOOKUP = {name.lower(): name for name in all_champions}
+
+
+def normalize_lane(raw_lane):
+    key = raw_lane.strip().lower()
+    return LANE_ALIASES.get(key)
+
+
+def normalize_champion(raw_name):
+    key = raw_name.strip().lower()
+    return CHAMPION_LOOKUP.get(key)
+
+
 print("Model 1: Counter Pick Recommendation Engine")
-print(f"Gecerli lane degerleri: {', '.join(VALID_LANES)}")
-print("Sampiyon adlari Riot'un ic formatinda olmali (bosluksuz): "
-      "orn. Renekton, KSante, DrMundo, AurelionSol, MonkeyKing (Wukong)")
+print("Lane icin kisaltma/rol adi da yazabilirsin: top, jungle/jg/jung, "
+      "mid/middle, bot/adc, support/supp/utility")
+print("Sampiyon adinda buyuk/kucuk harf onemli degil (orn. 'malzahar' calisir). "
+      "Bosluksuz yazman lazim: KSante, DrMundo, AurelionSol, MonkeyKing (Wukong).")
 print("Cikmak icin bos birak ve Enter'a bas.")
 print()
 
 while True:
-    enemy = input("Rakip sampiyon: ").strip()
-    if not enemy:
+    enemy_raw = input("Rakip sampiyon: ").strip()
+    if not enemy_raw:
         break
 
-    lane = input("Lane (TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY): ").strip().upper()
-    if lane not in VALID_LANES:
-        print(f"Gecersiz lane: '{lane}'. Su degerlerden biri olmali: {VALID_LANES}\n")
+    enemy = normalize_champion(enemy_raw)
+    if enemy is None:
+        print(f"'{enemy_raw}' adinda bir sampiyon bulunamadi. Yazimini kontrol et.\n")
+        continue
+
+    lane_raw = input("Lane: ").strip()
+    lane = normalize_lane(lane_raw)
+    if lane is None:
+        print(f"Gecersiz lane: '{lane_raw}'. Ornek gecerli degerler: "
+              "top, jungle/jg, mid, bot/adc, support/supp\n")
         continue
 
     result = recommend_counters(model1_table, enemy, lane, top_n=5)
 
     if result.empty:
         print(f"'{enemy}' ({lane}) icin yeterli veri bulunamadi. "
-              "Sampiyon adini/lane'i kontrol et.\n")
+              "Bu sampiyon bu lane'de az oynanmis olabilir.\n")
         continue
 
     print()
