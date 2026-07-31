@@ -110,13 +110,22 @@ short_game_ids = set(full_wide.loc[full_wide["gameDuration"] < 300, "matchId"])
 early_surrender_ids = set(full_long.loc[full_long["GameEndedInEarlySurrender"], "matchId"])
 missing_position_ids = set(full_long.loc[full_long["TeamPosition"].isna(), "matchId"])
 
-invalid_ids = short_game_ids | early_surrender_ids | missing_position_ids
+# Feature engineering asamasinda kesfedildi: bazi maclarda iki takim da
+# Win=False olarak isaretlenmis (kazanan yok) - Riot API'nin nadir bir
+# veri kaydi hatasi. Bu maclarda kazanan/kaybeden bilgisi anlamsiz oldugu
+# icin cikariyoruz.
+no_winner_ids = set(
+    full_long.groupby("matchId")["Win"].nunique().loc[lambda s: s != 2].index
+)
+
+invalid_ids = short_game_ids | early_surrender_ids | missing_position_ids | no_winner_ids
 
 print()
 print("=== TEMIZLEME OZETI ===")
 print(f"Kisa mac (< 5 dk):          {len(short_game_ids)} mac")
 print(f"Erken teslim:               {len(early_surrender_ids)} mac")
 print(f"Eksik TeamPosition:         {len(missing_position_ids)} mac")
+print(f"Kazanan bilgisi tutarsiz:   {len(no_winner_ids)} mac")
 print(f"Toplam gecersiz (birlesim): {len(invalid_ids)} mac")
 print(f"Toplam mac sayisi:          {full_wide['matchId'].nunique()}")
 

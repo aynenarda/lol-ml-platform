@@ -3,7 +3,7 @@
 Kendi veri toplama, feature engineering, model eğitimi ve tahmin altyapısına sahip,
 League of Legends için Machine Learning tabanlı karar destek sistemi.
 
-## Durum: Milestone 4 - Feature Engineering (sırada)
+## Durum: Milestone 4 - Feature Engineering (Model 1 temel istatistiği tamamlandı)
 
 ## Veri Kaynağı
 
@@ -13,9 +13,26 @@ Kaggle: `californianbill/patch-25-14-lol-league-of-legends-ranked-games`
 - `data/raw/matchData.csv` — ham kaynak (dokunulmaz, referans)
 - `data/processed/matches_long.parquet` — wide (1770 kolon, maç bazlı) formattan
   long/tidy (oyuncu-maç bazlı, 1.018.430 satır) formata çevrilmiş ara veri (temizlenmemiş)
-- `data/processed/matches_clean.parquet` — temizlenmiş veri (1.001.400 satır, 100.140 maç).
-  Elenenler: <5dk maçlar (1648), erken teslim (1476 maç), eksik TeamPosition (508 maç) —
-  birleşimde 1.703 maç (%1.7) elendi.
+- `data/processed/matches_clean.parquet` — temizlenmiş veri (1.001.350 satır, 100.135 maç).
+  Elenenler: <5dk maçlar (1648), erken teslim (1476 maç), eksik TeamPosition (508 maç),
+  kazanan bilgisi tutarsız (5 maç) — birleşimde 1.708 maç (%1.7) elendi.
+- `data/processed/counter_stats.parquet` — Model 1'in temel feature store'u:
+  (lane, ChampionName, ChampionName_opp) bazında games/wins/win_rate/confidence_score
+  (Wilson score alt sınırı) ve has_enough_data (MIN_GAMES=20) — 42.354 satır.
+
+## Feature Engineering Notları (Model 1)
+
+- **Self-join tekniği:** matchup verisi `matches_clean` tablosunun kendisiyle
+  `matchId + TeamPosition` üzerinden birleştirilmesiyle üretiliyor, `Win != Win_opp`
+  filtresiyle sadece gerçek rakip çiftleri kalıyor.
+- **Ham win_rate yeterli değil:** küçük örneklemde (örn. 1-4 maç) %100 win rate
+  gibi güvenilmez sonuçlar çıkıyor. **Wilson Score Interval alt sınırı**
+  (`confidence_score`) küçük örneklemi otomatik cezalandırıyor, ayrıca
+  `MIN_GAMES=20` eşiği ile çok düşük örneklemli matchup'lar "yetersiz veri"
+  olarak işaretleniyor.
+- Rank segmentasyonu şimdilik atlandı (veri setinde maç bazlı rank yok, sadece
+  genel "Platinum+" alt sınırı var) — counter-matchup bilgisi zaten büyük
+  ölçüde rank-bağımsız kabul edildi.
 
 **Keşfedilen yapı:** `participantIndex` 0-4 = Team1, 5-9 = Team2. Lane'ler
 hizalı (0↔5 TOP, 1↔6 JUNGLE, 2↔7 MIDDLE, 3↔8 BOTTOM, 4↔9 UTILITY) — aynı
