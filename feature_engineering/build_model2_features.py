@@ -1,0 +1,24 @@
+"""Model 2+3+4 icin final feature store'lari uretir: matchup intelligence
+(gold/cs farki) tablosu + item/rune onerileri (liste, JSON'a uygun)."""
+
+import json
+
+from feature_engineering.matchups import build_matchups
+from feature_engineering.matchup_intelligence import compute_gold_cs_diff, compute_item_rune_recommendations
+
+
+def build_model2_data(clean_long_df):
+    matchups = build_matchups(clean_long_df)
+
+    gold_cs_table = compute_gold_cs_diff(matchups)
+    item_rune_recs = compute_item_rune_recommendations(matchups)
+
+    return gold_cs_table, item_rune_recs
+
+
+def save_model2_data(gold_cs_table, item_rune_recs,
+                      gold_cs_path="data/processed/model2_gold_cs.parquet",
+                      item_rune_path="data/processed/model2_item_rune.json"):
+    gold_cs_table.to_parquet(gold_cs_path, index=False)
+    with open(item_rune_path, "w", encoding="utf-8") as f:
+        json.dump(item_rune_recs, f)

@@ -31,3 +31,19 @@ def load_difficulty_ratings(path="data/external/champions_meraki.json"):
             ratings[our_name] = ratings[meraki_name]
 
     return ratings
+
+
+def load_item_names(path="data/external/items.json"):
+    """Item ID (orn. 3020) -> item adi (orn. "Sorcerer's Shoes") sozlugu.
+    Sadece ISIM cozumleme icin - hangi item'in ONERILECEGI bizim
+    verimizden (win rate'e gore) cikacak, bu sadece etiketleme."""
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)
+    return {item["id"]: item["name"] for item in items}
+
+
+def load_perk_names(path="data/external/perks.json"):
+    """Rune/perk ID -> isim (orn. 8005 -> "Press the Attack") sozlugu."""
+    with open(path, encoding="utf-8") as f:
+        perks = json.load(f)
+    return {perk["id"]: perk["name"] for perk in perks}

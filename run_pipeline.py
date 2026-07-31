@@ -14,6 +14,7 @@ from data_collector.raw_loader import load_raw_wide
 from data_cleaner.reshape import wide_to_long
 from data_cleaner.clean import find_invalid_match_ids, clean_long_data
 from feature_engineering.build_model1_features import build_model1_table
+from feature_engineering.build_model2_features import build_model2_data, save_model2_data
 from prediction_engine.model1_counter_pick import recommend_counters
 
 pd.set_option("display.max_columns", None)
@@ -47,6 +48,13 @@ def main():
         print(f"   #{row.ChampionName}  win_rate=%{row.win_rate*100:.1f}  "
               f"confidence=%{row.confidence_score*100:.1f}  difficulty={row.difficulty_label}")
         print(f"      {row.explanation}")
+
+    print()
+    print("6) Model 2 feature store'lari uretiliyor (gold/cs farki + item/rune onerileri)...")
+    gold_cs_table, item_rune_recs = build_model2_data(clean_df)
+    save_model2_data(gold_cs_table, item_rune_recs)
+    print(f"   {len(gold_cs_table)} matchup icin gold/cs farki, "
+          f"{len(item_rune_recs)} matchup icin item/rune onerisi kaydedildi.")
 
 
 if __name__ == "__main__":

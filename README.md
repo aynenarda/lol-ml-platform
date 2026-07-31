@@ -67,6 +67,36 @@ raporlama sadece `run_pipeline.py`'de. Böylece her fonksiyon başka bir yerden
 - `scaling_score` nedensellik değil korelasyon — yukarıda açıklandı.
 - Sadece NA sunucusu, tek zaman dilimi (patch 25.14+) — bölgesel/patch farkları yok.
 
+## Model 2+3+4 (birleşik): Matchup Intelligence + Item + Rune Önerisi
+
+Kullanıcının hem kendi şampiyonunu hem rakibi seçtiği senaryo. Skill order
+ve item satın alma sırası/zamanlaması **veri setimizde yok** (Riot'un ayrı
+Timeline API'sini gerektirir — `developer.riotgames.com`, `/lol/match/v5/matches/{matchId}/timeline`,
+`SKILL_LEVEL_UP`/`ITEM_PURCHASED` event'leri içerir, ama bu proje aşamasında
+toplamadık) — bu yüzden kapsam şu an final/çekirdek item build + rün
+önerisiyle sınırlı, dürüstçe belirtilmiştir.
+
+**Dosyalar:**
+- `feature_engineering/matchup_intelligence.py` — beklenen gold/CS farkı
+  (self-join'deki `_opp` kolonlarından) + **sadece kazanılan maçlardaki**
+  en sık item/rün kombinasyonu (`MIN_GAMES_FOR_BUILD=15`)
+- `feature_engineering/build_model2_features.py` — orkestratör, parquet +
+  JSON olarak kaydeder
+- `prediction_engine/model2_matchup_intelligence.py` — raporu birleştirir,
+  item/rün ID'lerini isme çevirir (statik referans: `data/external/items.json`,
+  `perks.json`, Community Dragon üzerinden — sadece isimlendirme için,
+  öneri mantığı bizim verimizden)
+- `try_model2.py` — interaktif deneme scripti, alias sistemini (`heim`→`Heimerdinger`)
+  hem kendi şampiyonum hem rakip için kullanıyor
+
+**Doğrulama (Jax vs Renekton, TOP):** `Trinity Force (%94)` ve `Grasp of the
+Undying + Demolish + Second Wind` rün sayfası — ikisi de gerçek, bilinen
+Jax build/rün seçimleriyle örtüşüyor.
+
+**Önemli tasarım kararı:** İtem/rün ismi statik veriden geliyor ama **hangi
+item/rün'ün önerileceği tamamen bizim maç verimizden (kazanılan maçlardaki
+frekans)** çıkıyor — Riot'un hazır "önerilen build"i kullanılmıyor.
+
 ## Meta Kayması (Concept Drift) Takibi (feature_engineering/recency.py)
 
 **Problem:** Tüm geçmiş veriyi eşit ağırlıkla ortalarsak, yeni bir meta trendi
