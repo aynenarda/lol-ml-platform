@@ -4,5 +4,6 @@ __pycache__/
 .env
 data/raw/
 data/processed/
+data/external/
 *.log
 .ipynb_checkpoints/
