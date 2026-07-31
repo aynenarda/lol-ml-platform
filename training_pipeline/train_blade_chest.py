@@ -125,6 +125,12 @@ def predict_matchup(model, champ_to_idx, my_champion, opp_champion):
         return torch.sigmoid(logit).item()
 
 
+LANES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+DISPLAY_LANE_LABELS = {
+    "TOP": "TOP", "JUNGLE": "JUNGLE", "MIDDLE": "MID", "BOTTOM": "ADC", "UTILITY": "SUPPORT",
+}
+
+
 def main():
     print("1) Veri hazirlaniyor...")
     wide_df = load_raw_wide()
@@ -133,25 +139,31 @@ def main():
     clean_df = clean_long_data(long_df, invalid_ids)
     matchups_df = build_matchups(clean_df)
 
-    model, champ_to_idx = train_blade_chest(matchups_df, "TOP")
+    summary = []
 
-    jax_vs_renekton = predict_matchup(model, champ_to_idx, "Jax", "Renekton")
-    renekton_vs_jax = predict_matchup(model, champ_to_idx, "Renekton", "Jax")
+    for lane in LANES:
+        model, champ_to_idx = train_blade_chest(matchups_df, lane)
+
+        # Tutarlilik kontrolu her lane icin: rastgele bir cift secip
+        # P(A kazanir) + P(B kazanir) = 1 oldugunu dogruluyoruz.
+        champs = list(champ_to_idx.keys())
+        a, b = champs[0], champs[1]
+        p_a = predict_matchup(model, champ_to_idx, a, b)
+        p_b = predict_matchup(model, champ_to_idx, b, a)
+        consistency = p_a + p_b
+
+        torch.save(
+            {"model_state": model.state_dict(), "champ_to_idx": champ_to_idx, "embed_dim": EMBED_DIM},
+            f"model_registry/blade_chest_{lane}.pt",
+        )
+
+        summary.append({"lane": DISPLAY_LANE_LABELS[lane], "consistency_check": consistency})
+        print(f"Kaydedildi: model_registry/blade_chest_{lane}.pt")
 
     print()
-    print("=== Karsilastirma: Jax vs Renekton (TOP) ===")
-    print(f"Sayma yontemi:         %57.6  (276 dogrudan mac)")
-    print(f"Bradley-Terry (duz):   %51.4  (sadece genel guc farki)")
-    print(f"Blade & Chest:         %{jax_vs_renekton*100:.1f}  (genel guc + ozel etkilesim)")
-    print()
-    print(f"Tutarlilik kontrolu: P(Jax kazanir) + P(Renekton kazanir) = "
-          f"{jax_vs_renekton + renekton_vs_jax:.4f}  (1.0'a yakin olmali)")
-
-    torch.save(
-        {"model_state": model.state_dict(), "champ_to_idx": champ_to_idx, "embed_dim": EMBED_DIM},
-        "model_registry/blade_chest_TOP.pt",
-    )
-    print("\nKaydedildi: model_registry/blade_chest_TOP.pt")
+    print("=== 5 lane icin egitim ozeti ===")
+    for row in summary:
+        print(f"{row['lane']:8s}  tutarlilik_kontrolu={row['consistency_check']:.4f}")
 
 
 if __name__ == "__main__":

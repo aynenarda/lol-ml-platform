@@ -108,7 +108,19 @@ bu SPESİFİK, sağlam örneklemli (276 maç) çiftte tahmini sayma yönteminden
 uzaklaştırdı. 30 epoch'luk model bu çifte biraz "fazla uyum" sağlamıştı
 ama o uyum bu örnekte aslında gerçeğe daha yakındı. Genelleme ortalamada
 iyi olmak demek, her tekil örnekte en iyi olmak demek değildir.
-- Kayıt: `model_registry/blade_chest_TOP.pt`, `model_registry/win_probability_TOP.joblib`
+- **5 lane'in tamamına genişletildi** (her lane'in kendi modeli var, çünkü
+  şampiyon havuzu ve dinamikler lane'e göre çok farklı):
+
+| Lane | Test Accuracy | Tutarlılık Kontrolü (P(A)+P(B)) |
+|---|---|---|
+| TOP | 0.5256 | 1.0000 |
+| JUNGLE | 0.5218 | 1.0000 |
+| MID | 0.5237 | 1.0000 |
+| ADC | 0.5247 | 1.0000 |
+| SUPPORT | 0.5205 | 1.0000 |
+
+- Kayıt: `model_registry/blade_chest_{TOP,JUNGLE,MIDDLE,BOTTOM,UTILITY}.pt`,
+  `model_registry/win_probability_TOP.joblib`
 
 **Keşfedilen yapı:** `participantIndex` 0-4 = Team1, 5-9 = Team2. Lane'ler
 hizalı (0↔5 TOP, 1↔6 JUNGLE, 2↔7 MIDDLE, 3↔8 BOTTOM, 4↔9 UTILITY) — aynı
