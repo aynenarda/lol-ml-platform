@@ -5,6 +5,18 @@ League of Legends için Machine Learning tabanlı karar destek sistemi.
 
 ## Durum: Model 1 (Counter Pick Recommendation Engine) tamamlandı
 
+## Kurulum Notu: data/external/ dosyalarını indirme
+
+`data/external/` gitignore'da (büyük/statik dosyalar) — yeni bir klonda bu
+komutlarla yeniden indirilmesi gerekir:
+
+```bash
+mkdir -p data/external
+curl -s "https://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json" -o data/external/champions_meraki.json
+curl -s "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/tr_tr/v1/items.json" -o data/external/items.json
+curl -s "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/tr_tr/v1/perks.json" -o data/external/perks.json
+```
+
 ## Veri Kaynağı
 
 Kaggle: `californianbill/patch-25-14-lol-league-of-legends-ranked-games`
