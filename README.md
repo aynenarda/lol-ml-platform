@@ -67,6 +67,33 @@ raporlama sadece `run_pipeline.py`'de. Böylece her fonksiyon başka bir yerden
 - `scaling_score` nedensellik değil korelasyon — yukarıda açıklandı.
 - Sadece NA sunucusu, tek zaman dilimi (patch 25.14+) — bölgesel/patch farkları yok.
 
+## Meta Kayması (Concept Drift) Takibi (feature_engineering/recency.py)
+
+**Problem:** Tüm geçmiş veriyi eşit ağırlıkla ortalarsak, yeni bir meta trendi
+(bir şampiyonun yeni bir lane'de güçlenmesi gibi) binlerce eski maçın altında
+kaybolur. Veri setimizde bunun **gerçek bir örneğini** bulduk: **Ahri, ADC
+(BOTTOM) lane'inde** — patch 15.14'te %44.2, 15.15'te %47.4, 15.16'da **%58.9**
+win rate. Sabit "sadece son patch" filtresi de riskli — veri miktarını aşırı
+azaltıp nadir eşleşmeleri verisiz bırakabilir.
+
+**Çözüm:** `feature_engineering/recency.py` — veri setindeki en güncel patch'i
+**otomatik tespit edip**, her patch'e (güncelden geçmişe) üstel azalan bir
+ağırlık atıyor (`DECAY=0.5`: bir önceki patch yarı ağırlıklı, ondan önceki
+çeyrek ağırlıklı...). `compute_counter_stats` artık bu ağırlıklara göre
+hesaplama yapıyor (`effective_games`/`effective_wins`, ham `games` sayısı
+`has_enough_data` eşiği için hâlâ korunuyor).
+
+**Doğrulama (Ahri ADC, tüm rakipler ortalaması):**
+
+| Yöntem | Win Rate |
+|---|---|
+| Ağırlıksız (tüm patch'ler eşit) | %50.3 |
+| **Ağırlıklı (üstel azalan)** | **%53.7** |
+| Sadece son patch (15.16, tek başına) | %58.9 |
+
+Ağırlıklı sonuç, tam olarak beklenen yerde: güncel trende doğru kayıyor
+ama tek patch'in küçük-örneklem gürültüsüne tam teslim olmuyor.
+
 ## Düşük Veri Fallback'i (prediction_engine/learned_fallback.py)
 
 Sayma yöntemi (`MIN_GAMES=20` eşiği) yeterli veri bulamazsa (örn. Alistar

@@ -11,8 +11,10 @@ PARTICIPANT_FIELDS = [
     "DamageDealtToBuildings", "LargestKillingSpree", "TotalDamageDealtToChampions",
 ]
 
-# Mac bazli (participant'tan bagimsiz) alanlar.
-MATCH_LEVEL_FIELDS = ["gameMode", "mapId", "gameDuration"]
+# Mac bazli (participant'tan bagimsiz) alanlar. gameVersion + gameCreation,
+# meta kaymasini (concept drift) takip edebilmek icin gerekli - hangi
+# patch'te, ne zaman oynandigi.
+MATCH_LEVEL_FIELDS = ["gameMode", "mapId", "gameDuration", "gameVersion", "gameCreation"]
 
 
 def load_raw_wide(path="data/raw/matchData.csv"):

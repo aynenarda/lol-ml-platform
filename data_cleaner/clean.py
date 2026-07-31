@@ -24,6 +24,11 @@ def find_invalid_match_ids(wide_df, long_df):
 
 def clean_long_data(long_df, invalid_ids):
     """Gecersiz maclari cikarir, artik gereksiz olan
-    GameEndedInEarlySurrender kolonunu dusurur (hep False olacak)."""
+    GameEndedInEarlySurrender kolonunu dusurur (hep False olacak).
+    Ayrica gameVersion'dan sadece "major.minor" kismini (orn. "15.14.697.2104"
+    -> "15.14") cikaran bir "patch" kolonu ekler - meta kaymasi (concept
+    drift) analizinde patch bazinda gruplamak icin kullanilacak."""
     clean = long_df[~long_df["matchId"].isin(invalid_ids)].copy()
-    return clean.drop(columns=["GameEndedInEarlySurrender"])
+    clean = clean.drop(columns=["GameEndedInEarlySurrender"])
+    clean["patch"] = clean["gameVersion"].str.extract(r"^(\d+\.\d+)")
+    return clean
