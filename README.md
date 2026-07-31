@@ -90,11 +90,24 @@ amaç gradient descent'in gerçekte nasıl çalıştığını, embedding'lerin n
   (rakip blade'i · benim chest'im) — bu formül kasıtlı olarak antisimetrik,
   yani P(A kazanır) + P(B kazanır) = 1 garantisi var.
 - Adam optimizer + BCEWithLogitsLoss ile eğitildi (`training_pipeline/train_blade_chest.py`).
-- Jax vs Renekton için **%57.3** tahmin etti — sayma yöntemine (%57.6) neredeyse
-  birebir örtüştü, düz Bradley-Terry'nin (%51.4) kaçırdığı özel etkileşimi yakaladı.
-- **Bilinen sınırlama:** test loss ~10. epoch'tan sonra hafifçe dalgalanıyor
-  (hafif overfitting belirtisi) — early stopping ile iyileştirilebilir, henüz
-  yapılmadı.
+- **Early stopping eklendi** (patience=5): test loss 5 epoch boyunca iyileşmezse
+  eğitim durur, en iyi test-loss'lu ağırlıklar geri yüklenir.
+
+**Sonuç karşılaştırması (Jax vs Renekton, TOP):**
+
+| Yöntem | Tahmin | Not |
+|---|---|---|
+| Sayma (276 maç) | %57.6 | Doğrudan gözlem |
+| Bradley-Terry (düz) | %51.4 | Özel etkileşimi kaçırıyor |
+| Blade & Chest, 30 epoch | %57.3 | Sayma yöntemine çok yakın |
+| Blade & Chest, early stopping (epoch 8) | %54.0 | Genel accuracy daha iyi (0.5256 vs 0.5192) ama bu spesifik çiftte sayma yönteminden daha uzak |
+
+**Dürüst gözlem — bias-variance trade-off:** Early stopping genel test
+accuracy'yi artırdı (tüm matchup'lar ortalamasında daha iyi genelleme) ama
+bu SPESİFİK, sağlam örneklemli (276 maç) çiftte tahmini sayma yönteminden
+uzaklaştırdı. 30 epoch'luk model bu çifte biraz "fazla uyum" sağlamıştı
+ama o uyum bu örnekte aslında gerçeğe daha yakındı. Genelleme ortalamada
+iyi olmak demek, her tekil örnekte en iyi olmak demek değildir.
 - Kayıt: `model_registry/blade_chest_TOP.pt`, `model_registry/win_probability_TOP.joblib`
 
 **Keşfedilen yapı:** `participantIndex` 0-4 = Team1, 5-9 = Team2. Lane'ler

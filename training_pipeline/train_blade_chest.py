@@ -1,6 +1,8 @@
 """Blade & Chest modelini egitir ve sayma yontemi + duz Bradley-Terry
 modeliyle karsilastirir."""
 
+import copy
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,6 +19,7 @@ EPOCHS = 30
 BATCH_SIZE = 4096
 LEARNING_RATE = 0.05
 WEIGHT_DECAY = 1e-4  # L2 regularization - kucuk orneklemli sampiyonlari cezalandirir
+PATIENCE = 5  # test loss bu kadar epoch boyunca iyilesmezse egitimi durdur
 
 
 def prepare_tensors(matchups_df, lane):
@@ -56,8 +59,12 @@ def train_blade_chest(matchups_df, lane):
     loss_fn = nn.BCEWithLogitsLoss()  # sigmoid + binary cross-entropy, birlikte (sayisal olarak daha kararli)
 
     n_train = len(y_tr)
+    best_test_loss = float("inf")
+    best_state = None
+    epochs_without_improvement = 0
+
     print()
-    print("--- Gradient Descent (Adam optimizer) ilerlemesi ---")
+    print(f"--- Gradient Descent (Adam optimizer) ilerlemesi (early stopping, patience={PATIENCE}) ---")
     for epoch in range(1, EPOCHS + 1):
         perm = torch.randperm(n_train)
         epoch_loss = 0.0
@@ -72,11 +79,32 @@ def train_blade_chest(matchups_df, lane):
             epoch_loss += loss.item() * len(batch_ids)
 
         epoch_loss /= n_train
+
+        # Test loss'u HER epoch'ta olcuyoruz (sadece raporlama icin degil,
+        # early stopping karari bu olcume dayaniyor).
+        with torch.no_grad():
+            test_logits = model(my_te, opp_te)
+            test_loss = loss_fn(test_logits, y_te).item()
+
         if epoch % 5 == 0 or epoch == 1:
-            with torch.no_grad():
-                test_logits = model(my_te, opp_te)
-                test_loss = loss_fn(test_logits, y_te).item()
             print(f"Epoch {epoch:2d}  train_loss={epoch_loss:.4f}  test_loss={test_loss:.4f}")
+
+        if test_loss < best_test_loss:
+            best_test_loss = test_loss
+            best_state = copy.deepcopy(model.state_dict())
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= PATIENCE:
+                print(f"Epoch {epoch:2d}  test_loss={test_loss:.4f}  "
+                      f"-> {PATIENCE} epoch boyunca iyilesme yok, durduruluyor.")
+                break
+
+    # En iyi (en dusuk test loss'lu) agirliklari geri yukluyoruz - son
+    # epoch'un agirliklari degil, cunku son epoch overfitting baslamis
+    # olabilir.
+    model.load_state_dict(best_state)
+    print(f"\nEn iyi test_loss: {best_test_loss:.4f} agirliklari geri yuklendi.")
 
     with torch.no_grad():
         test_logits = model(my_te, opp_te)
