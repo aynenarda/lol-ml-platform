@@ -8,6 +8,7 @@ istedigin sampiyon/lane icin sorgu yapar.
 import pandas as pd
 
 from prediction_engine.model1_counter_pick import recommend_counters
+from prediction_engine.champion_alias import load_aliases, resolve_champion
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 200)
@@ -34,10 +35,8 @@ DISPLAY_LANE_LABELS = {
 
 model1_table = pd.read_parquet("data/processed/model1_counter_features.parquet")
 
-# Sampiyon adini buyuk/kucuk harf duyarsiz eslestirebilmek icin:
-# "malzahar" -> "Malzahar" gibi bir sozluk kuruyoruz.
-all_champions = pd.concat([model1_table["ChampionName"], model1_table["ChampionName_opp"]]).unique()
-CHAMPION_LOOKUP = {name.lower(): name for name in all_champions}
+all_champions = pd.concat([model1_table["ChampionName"], model1_table["ChampionName_opp"]]).unique().tolist()
+learned_aliases = load_aliases()
 
 
 def normalize_lane(raw_lane):
@@ -46,8 +45,14 @@ def normalize_lane(raw_lane):
 
 
 def normalize_champion(raw_name):
-    key = raw_name.strip().lower()
-    return CHAMPION_LOOKUP.get(key)
+    def ask_confirmation(candidate_name):
+        answer = input(f"'{raw_name}' ile '{candidate_name}' mi demek istedin? (e/h): ").strip().lower()
+        return answer in ("e", "evet", "y", "yes")
+
+    champion, newly_learned = resolve_champion(raw_name, all_champions, learned_aliases, ask_confirmation)
+    if newly_learned:
+        print(f"Not edildi: bundan sonra '{raw_name}' yazinca dogrudan '{champion}' anlasilacak.\n")
+    return champion
 
 
 print("Model 1: Counter Pick Recommendation Engine")

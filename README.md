@@ -67,6 +67,26 @@ raporlama sadece `run_pipeline.py`'de. Böylece her fonksiyon başka bir yerden
 - `scaling_score` nedensellik değil korelasyon — yukarıda açıklandı.
 - Sadece NA sunucusu, tek zaman dilimi (patch 25.14+) — bölgesel/patch farkları yok.
 
+## Kullanıcı Girdisinden Öğrenen Alias Sistemi (prediction_engine/champion_alias.py)
+
+**Bu, Model 1'in oyun bilgisinden (yukarıdaki eğitilen modellerden) TAMAMEN
+bağımsız, ayrı bir öğrenme döngüsü.** Oyun sonucu değil, "kullanıcı ne demek
+istedi" sorusunu öğreniyor.
+
+**Akış:**
+1. Tam eşleşme var mı (büyük/küçük harf duyarsız)? → direkt dön.
+2. Daha önce öğrenilmiş bir alias var mı (`data/learned/champion_aliases.json`)? → direkt dön, soru sorulmaz.
+3. Hiçbiri yoksa: önce **prefix eşleşmesi** dene ("heim" → "heim" ile başlayan şampiyonlar), yoksa genel fuzzy string matching'e düş.
+4. Kullanıcıya sor: *"'heim' ile 'Heimerdinger' mi demek istedin?"* — onaylanırsa **kalıcı olarak kaydedilir**, bir daha sorulmaz.
+
+**Önemli düzeltme:** İlk denemede `difflib`'in genel benzerlik oranı "heim"i
+yanlışlıkla "Hwei"ye eşleştirdi (genel string benzerliği kısaltmalar için
+güvenilir değil). Prefix eşleşmesini öncelik olarak eklemek bunu düzeltti.
+
+**Bu sistemin `data/learned/` klasörü diğerlerinden farklı:** `.gitignore`'da
+DEĞİL — çünkü bu, tekrar üretilebilir bir önbellek değil, gerçek kalıcı
+öğrenilmiş bilgi (kullanıcı etkileşiminden birikiyor).
+
 ## Model 1'in Öğrenen Versiyonu (training_pipeline/ + model_registry/)
 
 Sayma yöntemine ek olarak, aynı problemi **gerçek ML modelleriyle** de çözdük —
