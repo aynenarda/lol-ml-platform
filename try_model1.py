@@ -9,6 +9,7 @@ import pandas as pd
 
 from prediction_engine.model1_counter_pick import recommend_counters
 from prediction_engine.champion_alias import load_aliases, resolve_champion
+from prediction_engine.learned_fallback import predict_counters
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 200)
@@ -87,8 +88,20 @@ while True:
     result = recommend_counters(model1_table, enemy, lane, top_n=5)
 
     if result.empty:
-        print(f"'{enemy}' ({DISPLAY_LANE_LABELS[lane]}) icin yeterli veri bulunamadi. "
-              "Bu sampiyon bu lane'de az oynanmis olabilir.\n")
+        print(f"'{enemy}' ({DISPLAY_LANE_LABELS[lane]}) icin sayma yontemiyle "
+              "yeterli veri bulunamadi (az oynanmis matchup).")
+
+        fallback = predict_counters(enemy, lane, top_n=5)
+        if not fallback:
+            print("Ogrenilen model de bu sampiyonu bu lane'de hic gormemis, "
+                  "hicbir tahmin uretilemiyor.\n")
+            continue
+
+        print("Ogrenilen model (Blade & Chest) uzerinden DUSUK GUVENILIRLIKLI "
+              "bir tahmin - bu dogrudan gozlem DEGIL, modelin genellemesi:\n")
+        for champion, prob in fallback:
+            print(f"   #{champion}  tahmini_win_probability=%{prob*100:.1f}  (model tahmini, dogrudan veri yok)")
+        print()
         continue
 
     print()

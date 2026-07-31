@@ -67,6 +67,20 @@ raporlama sadece `run_pipeline.py`'de. Böylece her fonksiyon başka bir yerden
 - `scaling_score` nedensellik değil korelasyon — yukarıda açıklandı.
 - Sadece NA sunucusu, tek zaman dilimi (patch 25.14+) — bölgesel/patch farkları yok.
 
+## Düşük Veri Fallback'i (prediction_engine/learned_fallback.py)
+
+Sayma yöntemi (`MIN_GAMES=20` eşiği) yeterli veri bulamazsa (örn. Alistar
+MID'de nadiren oynanıyor), sistem artık **boş sonuç döndürmek yerine**
+öğrenilmiş Blade & Chest modeline düşüyor — model, o şampiyonu hiç ya da
+az görmüş olsa bile diğer tüm maçlardan öğrendiği genel güç/etkileşim
+bilgisiyle bir tahmin üretebiliyor (Model 1'in "öğrenen" versiyonunun asıl
+kazanç noktası tam olarak bu).
+
+**Kritik: bu tahminler açıkça "düşük güvenilirlikli, doğrudan gözlem değil"
+diye etiketleniyor** — sayma yönteminin somut istatistiklerinden
+(win_rate, confidence_score, sample_size) FARKLI bir güven seviyesinde.
+Kullanıcıyı yanıltmamak için ayrım net tutuluyor.
+
 ## Kullanıcı Girdisinden Öğrenen Alias Sistemi (prediction_engine/champion_alias.py)
 
 **Bu, Model 1'in oyun bilgisinden (yukarıdaki eğitilen modellerden) TAMAMEN
