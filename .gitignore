@@ -5,5 +5,7 @@ __pycache__/
 data/raw/
 data/processed/
 data/external/
+model_registry/*.joblib
+model_registry/*.pt
 *.log
 .ipynb_checkpoints/

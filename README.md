@@ -67,6 +67,36 @@ raporlama sadece `run_pipeline.py`'de. Böylece her fonksiyon başka bir yerden
 - `scaling_score` nedensellik değil korelasyon — yukarıda açıklandı.
 - Sadece NA sunucusu, tek zaman dilimi (patch 25.14+) — bölgesel/patch farkları yok.
 
+## Model 1'in Öğrenen Versiyonu (training_pipeline/ + model_registry/)
+
+Sayma yöntemine ek olarak, aynı problemi **gerçek ML modelleriyle** de çözdük —
+amaç gradient descent'in gerçekte nasıl çalıştığını, embedding'lerin ne
+öğrendiğini elle görmek.
+
+**1) Bradley-Terry (düz lojistik regresyon, scikit-learn `SGDClassifier`):**
+- Her şampiyona TEK bir "genel güç" katsayısı öğreniyor (`training_pipeline/features.py`
+  + `training_pipeline/train_win_probability.py`).
+- L2 regularization (`alpha=0.01`) olmadan küçük örneklemli (off-role) şampiyonlar
+  katsayıları bozuyordu — regularization ekleyince gerçek TOP meta'sıyla örtüşen
+  sonuçlar çıktı (Fiora, Singed, Wukong, Urgot, Riven, Jax en güçlü).
+- **Sınırlama:** toplamsal (additive) model, taşlı-kağıt-makas tarzı özel
+  matchup etkileşimlerini yapısal olarak yakalayamıyor. Jax vs Renekton için
+  %51.4 tahmin etti (sayma yöntemi: %57.6).
+
+**2) Blade & Chest modeli (PyTorch, embedding tabanlı, `training_pipeline/blade_chest_model.py`):**
+- Oyun dengesi literatüründen bir teknik — her şampiyona genel güç dışında
+  iki embedding vektörü de öğretiliyor: `blade` (saldırı profili) ve `chest`
+  (savunma profili). Skor = güç farkı + (benim blade'im · rakip chest'i) -
+  (rakip blade'i · benim chest'im) — bu formül kasıtlı olarak antisimetrik,
+  yani P(A kazanır) + P(B kazanır) = 1 garantisi var.
+- Adam optimizer + BCEWithLogitsLoss ile eğitildi (`training_pipeline/train_blade_chest.py`).
+- Jax vs Renekton için **%57.3** tahmin etti — sayma yöntemine (%57.6) neredeyse
+  birebir örtüştü, düz Bradley-Terry'nin (%51.4) kaçırdığı özel etkileşimi yakaladı.
+- **Bilinen sınırlama:** test loss ~10. epoch'tan sonra hafifçe dalgalanıyor
+  (hafif overfitting belirtisi) — early stopping ile iyileştirilebilir, henüz
+  yapılmadı.
+- Kayıt: `model_registry/blade_chest_TOP.pt`, `model_registry/win_probability_TOP.joblib`
+
 **Keşfedilen yapı:** `participantIndex` 0-4 = Team1, 5-9 = Team2. Lane'ler
 hizalı (0↔5 TOP, 1↔6 JUNGLE, 2↔7 MIDDLE, 3↔8 BOTTOM, 4↔9 UTILITY) — aynı
 maçtaki karşılıklı rakipleri bulmak için bu hizalama kullanılacak (Model 2).
