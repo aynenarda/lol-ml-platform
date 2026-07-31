@@ -19,7 +19,11 @@ print(preview.dtypes)
 
 # --- Adim 2: ayni mantigi 10 participant icin tekrarla, sonra birlestir ---
 
-FIELDS = ["ChampionName", "TeamPosition", "Win", "Kills", "Deaths", "Assists", "GoldEarned", "GameEndedInEarlySurrender"]
+FIELDS = [
+    "ChampionName", "TeamPosition", "Win", "Kills", "Deaths", "Assists", "GoldEarned",
+    "GameEndedInEarlySurrender", "FirstBloodKill", "FirstTowerKill",
+    "DamageDealtToBuildings", "LargestKillingSpree", "TotalDamageDealtToChampions",
+]
 MATCH_LEVEL_FIELDS = ["gameMode", "mapId", "gameDuration"]
 
 def extract_participant(df, i):
