@@ -149,6 +149,14 @@ scaling = pd.DataFrame({
     "scaling_score": duration_winrate["long"] - duration_winrate["short"],
 }).reset_index()
 
+# Power Spike: scaling_score sadece "uzun mu kisa mi daha iyi" diyor (dogrusal
+# fark), ama bazi sampiyonlar (orn. suikastciler) tam ORTADA zirve yapar -
+# bu monotonik olmayan durumu yakalamak icin, 3 bucket'tan HANGISINDE win
+# rate en yuksekse onu "power spike penceresi" olarak etiketliyoruz.
+POWER_SPIKE_LABELS = {"short": "Erken Oyun", "medium": "Orta Oyun", "long": "Gec Oyun"}
+power_spike = duration_winrate[["short", "medium", "long"]].idxmax(axis=1).map(POWER_SPIKE_LABELS)
+scaling["power_spike"] = power_spike.values
+
 # Split Push: bina hasari, ayni lane icindeki ortalamaya orantili (lane'ler
 # arasi dogal fark var - top laner zaten support'tan cok daha fazla bina
 # hasari verir, o yuzden ham degeri degil, lane-ici oranini kullaniyoruz).
@@ -231,7 +239,7 @@ counter_stats["risk_score"] = counter_stats["wilson_upper"] - counter_stats["con
 
 model1_table = counter_stats.merge(
     champion_style[[
-        "TeamPosition", "ChampionName", "scaling_score", "split_push_score",
+        "TeamPosition", "ChampionName", "scaling_score", "power_spike", "split_push_score",
         "team_fight_score", "snowball_score", "difficulty_tier", "difficulty_label",
     ]],
     on=["TeamPosition", "ChampionName"],

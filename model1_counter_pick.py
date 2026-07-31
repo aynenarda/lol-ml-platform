@@ -24,6 +24,8 @@ def explain(row):
     elif row.scaling_score < -0.03:
         parts.append("Kisa maclarda daha basarili - erken oyunda guclu, hizli bitirmeyi hedefler.")
 
+    parts.append(f"En guclu oldugu donem: {row.power_spike}.")
+
     if row.split_push_score > 1.3:
         parts.append("Ortalamanin uzerinde bina hasari veriyor - split push potansiyeli yuksek.")
 
@@ -54,7 +56,8 @@ def recommend_counters(enemy_champion, lane, top_n=5, min_games=20):
     for _, row in candidates.iterrows():
         print(f"#{row.ChampionName}  |  win_rate=%{row.win_rate*100:.1f}  "
               f"confidence=%{row.confidence_score*100:.1f}  sample_size={row.games}  "
-              f"difficulty={row.difficulty_label}  risk_score={row.risk_score:.3f}")
+              f"difficulty={row.difficulty_label}  power_spike={row.power_spike}  "
+              f"risk_score={row.risk_score:.3f}")
         print(f"   Neden: {explain(row)}")
         print()
 

@@ -46,6 +46,9 @@ Kaggle: `californianbill/patch-25-14-lol-league-of-legends-ranked-games`
 - `split_push_score` — bina hasarının lane-içi ortalamaya oranı
 - `team_fight_score` — assist oranının lane-içi ortalamaya oranı
 - `snowball_score` — en uzun öldürme serisinin lane-içi ortalamaya oranı
+- `power_spike` — 3 süre dilimi (kısa/orta/uzun) arasında win rate'in ZİRVE
+  yaptığı dilim (scaling_score'dan farkı: doğrusal olmayan, tam ortada
+  zirve yapan şampiyonları da yakalar)
 - `difficulty_tier` / `difficulty_label` — Riot'un resmi statik zorluk derecesi
   (Meraki Analytics üzerinden, **1-3 ölçek**: Kolay/Orta/Zor — 0-10 değil)
 
