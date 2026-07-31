@@ -5,11 +5,18 @@ fonksiyon) saglayarak eklenecek."""
 import pandas as pd
 
 # Wide formatta tasimak istedigimiz participant-bazli alanlar.
+ITEM_FIELDS = [f"Item{i}" for i in range(7)]  # 7 envanter slotu (trinket dahil)
+RUNE_FIELDS = [
+    "PrimaryStylePerk1", "PrimaryStylePerk2", "PrimaryStylePerk3", "PrimaryStylePerk4",
+    "SubStylePerk1", "SubStylePerk2",
+]
+
 PARTICIPANT_FIELDS = [
     "ChampionName", "TeamPosition", "Win", "Kills", "Deaths", "Assists", "GoldEarned",
     "GameEndedInEarlySurrender", "FirstBloodKill", "FirstTowerKill",
     "DamageDealtToBuildings", "LargestKillingSpree", "TotalDamageDealtToChampions",
-]
+    "TotalMinionsKilled",
+] + ITEM_FIELDS + RUNE_FIELDS
 
 # Mac bazli (participant'tan bagimsiz) alanlar. gameVersion + gameCreation,
 # meta kaymasini (concept drift) takip edebilmek icin gerekli - hangi
