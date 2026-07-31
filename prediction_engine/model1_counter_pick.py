@@ -1,20 +1,19 @@
+"""Model 1: Counter Pick Recommendation Engine.
+
+Girdi: rakip sampiyon + lane. Cikti: en iyi karsi sampiyonlar, her biri
+icin istatistiksel gerekce (win probability, confidence, sample size,
+lane pressure, scaling, power spike, split push, team fight, snowball,
+difficulty, risk) ve dogal dilde aciklama.
+"""
+
 import pandas as pd
 
-pd.set_option("display.max_columns", None)
-pd.set_option("display.width", 200)
 
-model1 = pd.read_parquet("data/processed/model1_counter_features.parquet")
-
-
-def explain(row):
-    """Bir oneri satiri icin dogal dilde aciklama uretir - sayilara
-    degil, VERIYE dayali bir gerekce."""
-    parts = []
-
-    parts.append(
+def _explain(row):
+    parts = [
         f"{row.games} maclik veride %{row.win_rate*100:.1f} kazanma orani "
         f"(guven-ayarli skor: %{row.confidence_score*100:.1f})."
-    )
+    ]
 
     if row.first_blood_rate > 0.15:
         parts.append("Bu eslesmede ilk kani alma orani ortalamanin uzerinde - lane baskisi guclu.")
@@ -41,29 +40,16 @@ def explain(row):
     return " ".join(parts)
 
 
-def recommend_counters(enemy_champion, lane, top_n=5, min_games=20):
+def recommend_counters(model1_table, enemy_champion, lane, top_n=5, min_games=20):
     """Belirli bir rakip sampiyona ve lane'e karsi en iyi karsi
-    sampiyonlari onerir."""
-    candidates = model1[
-        (model1["TeamPosition"] == lane)
-        & (model1["ChampionName_opp"] == enemy_champion)
-        & (model1["games"] >= min_games)
+    sampiyonlari, aciklamalariyla birlikte dondurur."""
+    candidates = model1_table[
+        (model1_table["TeamPosition"] == lane)
+        & (model1_table["ChampionName_opp"] == enemy_champion)
+        & (model1_table["games"] >= min_games)
     ].copy()
 
     candidates = candidates.sort_values("confidence_score", ascending=False).head(top_n)
-
-    print(f"\n=== {lane} lane'de '{enemy_champion}' rakibine karsi en iyi {top_n} secim ===\n")
-    for _, row in candidates.iterrows():
-        print(f"#{row.ChampionName}  |  win_rate=%{row.win_rate*100:.1f}  "
-              f"confidence=%{row.confidence_score*100:.1f}  sample_size={row.games}  "
-              f"difficulty={row.difficulty_label}  power_spike={row.power_spike}  "
-              f"risk_score={row.risk_score:.3f}")
-        print(f"   Neden: {explain(row)}")
-        print()
+    candidates["explanation"] = candidates.apply(_explain, axis=1)
 
     return candidates
-
-
-if __name__ == "__main__":
-    recommend_counters("Renekton", "TOP", top_n=5)
-    recommend_counters("Zed", "MIDDLE", top_n=5)

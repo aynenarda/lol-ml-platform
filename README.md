@@ -11,29 +11,37 @@ Kaggle: `californianbill/patch-25-14-lol-league-of-legends-ranked-games`
 100.843 NA ranked maç (Platinum+), gerçek Riot API (Match-V5) ile toplanmış, CC0 lisans.
 
 - `data/raw/matchData.csv` — ham kaynak (dokunulmaz, referans)
-- `data/processed/matches_long.parquet` — wide (1770 kolon, maç bazlı) formattan
-  long/tidy (oyuncu-maç bazlı, 1.018.430 satır) formata çevrilmiş ara veri (temizlenmemiş)
-- `data/processed/matches_clean.parquet` — temizlenmiş veri (1.001.350 satır, 100.135 maç).
-  Elenenler: <5dk maçlar (1648), erken teslim (1476 maç), eksik TeamPosition (508 maç),
-  kazanan bilgisi tutarsız (5 maç) — birleşimde 1.708 maç (%1.7) elendi.
-- `data/processed/counter_stats.parquet` — Model 1'in temel feature store'u:
-  (lane, ChampionName, ChampionName_opp) bazında games/wins/win_rate/confidence_score
-  (Wilson score alt sınırı) ve has_enough_data (MIN_GAMES=20) — 42.354 satır.
+- `data/processed/matches_clean.parquet` — temizlenmiş, long/tidy formatta veri
+  (1.001.350 satır, 100.135 maç). Elenenler: <5dk maçlar (1648), erken teslim
+  (1476 maç), eksik TeamPosition (508 maç), kazanan bilgisi tutarsız (5 maç) —
+  birleşimde 1.708 maç (%1.7) elendi.
+- `data/processed/model1_counter_features.parquet` — Model 1'in final feature
+  store'u (aşağıda detaylı) — `run_pipeline.py` çalıştırıldığında ikisi de
+  otomatik üretilir.
 
 ## Model 1: Counter Pick Recommendation Engine — Tamamlandı
 
-**Dosyalar:**
-- `feature_engineering.py` — tüm feature üretim pipeline'ı (self-join,
-  matchup istatistikleri, champion-level oyun tarzı özellikleri, Riot'un
-  statik champion verisiyle birleştirme)
-- `model1_counter_pick.py` — asıl öneri motoru: `recommend_counters(enemy_champion, lane)`
+**Modül yapısı** (mimarideki isimlendirmeyle birebir):
+```
+data_collector/raw_loader.py          -> ham CSV'yi okur (ileride Riot API crawler'ı da buraya girecek)
+data_cleaner/reshape.py               -> wide -> long dönüşümü
+data_cleaner/clean.py                 -> geçersiz maç filtreleme kuralları
+feature_engineering/matchups.py       -> self-join + win rate + Wilson score + lane pressure
+feature_engineering/champion_style.py -> scaling/power spike/split push/team fight/snowball
+feature_engineering/external_data.py  -> Riot'un statik champion verisini yükler (difficulty)
+feature_engineering/build_model1_features.py -> yukarıdakileri birleştirip final tabloyu üretir
+prediction_engine/model1_counter_pick.py     -> recommend_counters(model1_table, enemy, lane)
+run_pipeline.py                       -> hepsini uçtan uca çalıştıran orkestratör (raporlama burada)
+```
+**Tasarım prensibi:** modül fonksiyonları saf (girdi→çıktı), print/log basmaz —
+raporlama sadece `run_pipeline.py`'de. Böylece her fonksiyon başka bir yerden
+(örn. ileride Backend API'den) sessizce çağrılabilir ve test edilebilir.
+
 - `data/processed/model1_counter_features.parquet` — final feature store (42.354 satır:
   lane × champion × opponent)
 - `data/external/champions_meraki.json` — Riot'un statik champion verisi
   (Meraki Analytics CDN üzerinden, difficulty/roles için) — büyük statik
-  dosya olduğu için git'e girmiyor, `feature_engineering.py` çalıştırılırken
-  otomatik indirilmesi gerekiyor (henüz otomatik indirme kodu yok, elle
-  indirilen dosya kullanıldı — ileride otomatikleştirilebilir)
+  dosya olduğu için git'e girmiyor, elle indirildi (ileride otomatikleştirilebilir)
 
 **Ürettiğimiz alanlar ve kaynakları:**
 - `win_rate`, `games` (Sample Size) — self-join + groupby
