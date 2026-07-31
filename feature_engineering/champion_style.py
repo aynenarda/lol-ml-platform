@@ -13,7 +13,7 @@ verir ama mutlak bir dogruluk iddiasi degildir.
 
 import pandas as pd
 
-POWER_SPIKE_LABELS = {"short": "Erken Oyun", "medium": "Orta Oyun", "long": "Gec Oyun"}
+POWER_SPIKE_LABELS = {"short": "Erken Oyun", "medium": "Orta Oyun", "long": "Geç Oyun"}
 
 
 def compute_champion_style(clean_long_df):

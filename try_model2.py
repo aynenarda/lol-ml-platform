@@ -9,6 +9,15 @@ from prediction_engine.champion_alias import load_aliases, resolve_champion
 pd.set_option("display.max_columns", None)
 
 VALID_LANES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+
+RUNE_SLOT_LABELS = {
+    "PrimaryStylePerk1": "Anahtar Rün (Keystone)",
+    "PrimaryStylePerk2": "Ana Yol - 1. Rün",
+    "PrimaryStylePerk3": "Ana Yol - 2. Rün",
+    "PrimaryStylePerk4": "Ana Yol - 3. Rün",
+    "SubStylePerk1": "Yardımcı Yol - 1. Rün",
+    "SubStylePerk2": "Yardımcı Yol - 2. Rün",
+}
 LANE_ALIASES = {
     "top": "TOP",
     "jungle": "JUNGLE", "jg": "JUNGLE", "jng": "JUNGLE", "jgl": "JUNGLE", "jung": "JUNGLE",
@@ -91,8 +100,8 @@ while True:
 
         combo = report["rune_combo"]
         print(f"\nEn cok kazandiran rune kombinasyonu (%{combo['pick_rate']*100:.0f} maçta):")
-        for slot, name in combo["perks"].items():
-            print(f"   {slot}: {name}")
+        for slot, label in RUNE_SLOT_LABELS.items():
+            print(f"   {label}: {combo['perks'][slot]}")
     else:
         print("\nBu matchup icin yeterli item/rune verisi yok (az oynanmis).")
 
