@@ -51,6 +51,11 @@ def normalize_champion(raw_name):
 
     champion, newly_learned = resolve_champion(raw_name, all_champions, learned_aliases, ask_confirmation)
     if newly_learned:
+        # resolve_champion diske kaydetti ama bu process'in bellekteki
+        # kopyasini guncellemedi - bu satir olmadan AYNI oturumda ayni
+        # sampiyon tekrar sorulunca hala eski (guncel olmayan) sozluge
+        # bakilir ve soru tekrar sorulurdu.
+        learned_aliases[raw_name.strip().lower()] = champion
         print(f"Not edildi: bundan sonra '{raw_name}' yazinca dogrudan '{champion}' anlasilacak.\n")
     return champion
 
