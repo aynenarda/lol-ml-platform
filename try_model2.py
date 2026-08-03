@@ -29,12 +29,14 @@ LANE_ALIASES = {
 BUILD_SOURCE_LABELS = {
     "matchup_specific": "bu eslesmeye ozel veri",
     "similarity_fallback": "rakibin ozellik profiline benzer rakiplerden genelleme",
+    "stat_based_fallback": "yetersiz eslesme verisi - rakibin stat profiline gore oncelendirilmis genel build",
     "general_fallback": "yetersiz veri - sampiyonun genel build'i kullanildi",
 }
 
 print("Veri yukleniyor...")
 (model1_table, gold_cs_table, item_rune_lookup,
- general_build, item_names, perk_names, attributes) = load_model2_data()
+ general_build, item_names, perk_names, attributes,
+ item_metadata, damage_types) = load_model2_data()
 
 all_champions = pd.concat([model1_table["ChampionName"], model1_table["ChampionName_opp"]]).unique().tolist()
 learned_aliases = load_aliases()
@@ -86,6 +88,7 @@ while True:
         my_champion, enemy_champion, lane,
         model1_table, gold_cs_table, item_rune_lookup,
         general_build, item_names, perk_names, attributes,
+        item_metadata, damage_types,
     )
 
     if report is None:
@@ -113,6 +116,11 @@ while True:
 
         if report["build_source"] == "similarity_fallback":
             print(f"   Benzer bulunan rakipler: {', '.join(report['similar_opponents'])}")
+        elif report["build_source"] == "stat_based_fallback":
+            print(f"   {report['build_sample_size']} kazanilan mactan (rakipten bagimsiz) cikarilan havuz, "
+                  "rakibin stat profiline gore yeniden siralandi.")
+            if report["stat_reasoning"]:
+                print(f"   Gerekce: {'; '.join(report['stat_reasoning'])}")
         elif "build_sample_size" in report:
             print(f"   {report['build_sample_size']} kazanilan mactan cikarildi.")
 

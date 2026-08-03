@@ -49,7 +49,7 @@ def _classify_item(item_id, item_metadata):
     return "core"
 
 
-def _top_items(win_rows, item_metadata, top_n=5):
+def _top_items(win_rows, item_metadata, top_n=5, top_n_boots=1):
     """Item'lari 'boots' (tek oneri) ve 'core' (siralanmamis, en sik
     goruleni ilk) olarak ikiye ayirir. Trinket ve erken oyun item'lari
     (Doran's, Kara Muhur vb.) hic sayilmiyor - matchup'a ozgu bilgi
@@ -71,7 +71,7 @@ def _top_items(win_rows, item_metadata, top_n=5):
 
     boots = [
         {"item_id": item_id, "pick_rate": count / n_games}
-        for item_id, count in boots_counter.most_common(1)
+        for item_id, count in boots_counter.most_common(top_n_boots)
     ]
     core_items = [
         {"item_id": item_id, "pick_rate": count / n_games}
@@ -95,14 +95,20 @@ def compute_champion_general_build(matchups_df, item_metadata):
     """Fallback katmani 3 (son care): (lane, benim sampiyonum) bazinda,
     RAKIPTEN BAGIMSIZ genel build. Onceki bulgumuz: cekirdek item'lar
     zaten cogunlukla rakipten bagimsiz oldugu icin, bu fallback'te
-    bilgi kaybi az."""
+    bilgi kaybi az.
+
+    top_boots/top_core_items burada normalden daha genis tutuluyor
+    (top_n_boots=3, top_n=12): bu havuz, prediction_engine tarafinda
+    rakibin stat profiline gore YENIDEN SIRALANACAK (bkz.
+    model2_matchup_intelligence._stat_based_build) - o yuzden secime
+    girecek gercek gozlemlenmis adaylarin sayisi yeterince genis olmali."""
     wins_only = matchups_df[matchups_df["Win"]]
 
     results = {}
     for (lane, champ), group in wins_only.groupby(["TeamPosition", "ChampionName"]):
         if len(group) < MIN_GAMES_FOR_BUILD:
             continue
-        boots, core_items = _top_items(group, item_metadata)
+        boots, core_items = _top_items(group, item_metadata, top_n=12, top_n_boots=3)
         results[(lane, champ)] = {
             "win_games_used": len(group),
             "top_boots": boots,

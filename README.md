@@ -141,15 +141,32 @@ zengin bir versiyonu ile:
    o lane'de gerçekten karşılaştığı rakipler) zayıfsa (örn. bir Destek
    şampiyonun TOP'ta hiç emsali yoksa), eşleşme kalitesi de zayıf olabilir,
    bunu gizlemiyoruz.
-4. **Item/rune (katman 3, son çare):** k-NN'de HİÇ komşu bulunamazsa (o
-   şampiyonun o lane'de tier-1 eşiğini geçen tek bir rakibi bile yoksa),
-   şampiyonun rakipten bağımsız genel build'ine düşülüyor.
+4. **Item/rune (katman 3 — stat profiline göre yeniden sıralama):** k-NN'de
+   HİÇ komşu bulunamazsa (o şampiyonun o lane'de tier-1 eşiğini geçen tek bir
+   rakibi bile yoksa — örn. Malzahar TOP: toplam 141 galibiyet var ama hiçbir
+   TEK rakibe karşı 15 galibiyet eşiğine ulaşmıyor, çünkü rakip havuzu çok
+   dağılmış), tamamen rakipten bağımsız bir listeye düşmek yerine
+   `_stat_based_build` (`prediction_engine/model2_matchup_intelligence.py`)
+   devreye giriyor: şampiyonun **gerçekten gözlemlenmiş** item/çizme havuzunu
+   (`compute_champion_general_build` artık bunun için top 12 core + top 3
+   çizme saklıyor), rakibin **somut stat profiline** göre yeniden sıralıyor —
+   rakip ağırlıklı fiziksel hasar veriyorsa zırh etiketli item'lar, büyü
+   hasarı veriyorsa büyü direnci etiketli item'lar, rakip dayanıklıysa
+   (yüksek can/direnç) delme/nüfuz item'ları, rakip belirgin CC'ye sahipse
+   tenacity çizmesi öne çekiliyor (kategoriler Community Dragon'ın gerçek
+   `categories` alanından, hiçbir şey uydurulmuyor). Hiçbir item icat
+   edilmiyor — sadece havuzdaki gerçek adaylar arasında öncelik değişiyor;
+   kullanıcıya `stat_reasoning` alanıyla hangi mantığın uygulandığı açıkça
+   gösteriliyor. Rakip stat verisi de yoksa (çok nadir) düz genel build'e
+   (`general_fallback`) düşülüyor.
 
-**Doğrulama:** Jax vs Yuumi TOP (0 doğrudan maç) → Blade & Chest'ten win rate
-tahmini + k-NN'den Irelia/Gnar/Jayce/Yasuo/Shen'e benzeyen (Öklid mesafesi
-matematiksel olarak doğrulandı) bir build önerisi. Not: Yuumi TOP'ta hiç
-emsali olmayan bir seçim olduğu için eşleşme kalitesi zayıf — bu dürüstçe
-"benzer bulunan rakipler" listesinde görünür durumda, gizlenmiyor.
+**Doğrulama:** Malzahar (TOP) vs Dr. Mundo → `stat_based_fallback`, gerekçe:
+"rakip dayanıklı (yüksek can/direnç) -> nüfuz/delme" (Mundo'nun toughness=3
+olması nedeniyle). Jax vs Yuumi TOP (0 doğrudan maç) → Blade & Chest'ten win
+rate tahmini + k-NN'den Irelia/Gnar/Jayce/Yasuo/Shen'e benzeyen (Öklid
+mesafesi matematiksel olarak doğrulandı) bir build önerisi. Not: Yuumi
+TOP'ta hiç emsali olmayan bir seçim olduğu için eşleşme kalitesi zayıf — bu
+dürüstçe "benzer bulunan rakipler" listesinde görünür durumda, gizlenmiyor.
 
 **Doğrulama (Jax vs Renekton, TOP):** `Trinity Force (%94)`, çizme olarak
 `Plated Steelcaps (%41)` — Renekton'a (AD bruiser) karşı mantıklı bir zırh

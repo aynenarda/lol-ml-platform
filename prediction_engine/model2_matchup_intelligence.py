@@ -11,8 +11,12 @@ Item/rune onerisi 3 KATMANLI:
    (hasar/dayaniklilik/kontrol/hareketlilik/yardim) EN YAKIN, daha once
    karsilasilmis rakiplerin build'lerinden agirlikli ortalama - "hasar
    tipi" gibi kaba bir etiketten CoK daha zengin bir benzerlik olcusu.
-3. Son care: sampiyonun rakipten tamamen bagimsiz genel build'i
-   (yalnizca katman 2'de HIC benzer rakip bulunamazsa).
+3. Son care: k-NN icin de HIC benzer rakip bulunamadiginda (secilen
+   sampiyon o lane'de cok az/dagilmis oynanmis oldugu icin), sampiyonun
+   gozlemlenmis (rakipten bagimsiz) genel item/cizme havuzunu, rakibin
+   STAT PROFILINE (hasar tipi, dayaniklilik, kontrol, hareketlilik) gore
+   YENIDEN SIRALAR - yine sadece bu sampiyonun gercekten aldigi item'lar
+   arasindan seciyor, hicbir item uydurulmuyor (bkz. _stat_based_build).
 """
 
 import json
@@ -21,10 +25,21 @@ from collections import Counter
 
 import pandas as pd
 
-from feature_engineering.external_data import load_item_names, load_perk_names, load_champion_attributes
+from feature_engineering.external_data import (
+    load_item_names,
+    load_perk_names,
+    load_champion_attributes,
+    load_champion_damage_types,
+    load_item_metadata,
+)
 from prediction_engine.learned_fallback import predict_single_matchup
 
 K_NEIGHBORS = 5
+
+# Rakip stat profiline gore item kategorisi onceliklendirme esikleri.
+# Meraki attributeRatings 0-3 olcek; 3 = o ozellikte belirgin sekilde guclu.
+HIGH_ATTR_THRESHOLD = 3
+MODERATE_ATTR_THRESHOLD = 2
 
 
 def load_model2_data():
@@ -45,8 +60,11 @@ def load_model2_data():
     item_names = load_item_names()
     perk_names = load_perk_names()
     attributes = load_champion_attributes()
+    item_metadata = load_item_metadata()
+    damage_types = load_champion_damage_types()
 
-    return model1_table, gold_cs_table, item_rune_lookup, general_build, item_names, perk_names, attributes
+    return (model1_table, gold_cs_table, item_rune_lookup, general_build,
+            item_names, perk_names, attributes, item_metadata, damage_types)
 
 
 def _translate_items(item_list, item_names):
@@ -121,9 +139,90 @@ def _similarity_weighted_build(my_champion, enemy_champion, lane, item_rune_look
     }
 
 
+def _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type):
+    """Bir item'in rakibe karsi ne kadar 'mantikli' oldugunu, rakibin stat
+    profiline gore bir carpan olarak doner (1.0 = notr, notr'un uzerinde
+    daha oncelikli). Tamamen Community Dragon'un gercek item
+    kategorilerine (Armor, SpellBlock, Tenacity, ArmorPenetration,
+    MagicPenetration, Slow) ve Meraki'nin rakip stat profiline dayanir -
+    hicbir sayisal deger uydurulmuyor, sadece bilinen oyun mantigi
+    (fiziksel hasara karsi zirh, agir CC'ye karsi tenacity vb.)
+    kategori eslesmesi olarak kodlanmis."""
+    damage, toughness, control, mobility, utility = enemy_vec
+    score = 1.0
+    reasons = []
+
+    if enemy_damage_type == "kPhysical" and "Armor" in categories:
+        score *= 1.5
+        reasons.append("rakip agirlikli fiziksel hasar veriyor -> zirh")
+    elif enemy_damage_type == "kMagic" and "SpellBlock" in categories:
+        score *= 1.5
+        reasons.append("rakip agirlikli buyu hasari veriyor -> buyu direnci")
+    elif enemy_damage_type == "kMixed" and ("Armor" in categories or "SpellBlock" in categories):
+        score *= 1.2
+        reasons.append("rakip karma hasar veriyor -> karma savunma")
+
+    if toughness >= HIGH_ATTR_THRESHOLD and ("ArmorPenetration" in categories or "MagicPenetration" in categories):
+        score *= 1.4
+        reasons.append("rakip dayanikli (yuksek can/direnc) -> nufuz/delme")
+
+    if mobility >= HIGH_ATTR_THRESHOLD and "Slow" in categories:
+        score *= 1.3
+        reasons.append("rakip hareketliligi yuksek -> yavaslatma")
+
+    if is_boots and control >= MODERATE_ATTR_THRESHOLD and "Tenacity" in categories:
+        score *= 2.0
+        reasons.append("rakipte belirgin CC var -> tenacity cizme")
+
+    return score, reasons
+
+
+def _stat_based_build(my_champion, lane, enemy_champion, general_build,
+                       item_metadata, attributes, damage_types, top_n_core=5):
+    """Katman 3'un son adimi: sampiyonun GOZLEMLENMIS (rakipten bagimsiz)
+    item/cizme havuzunu, rakibin somut stat profiline (hasar tipi,
+    dayaniklilik, hareketlilik, kontrol) gore yeniden siralar. Sadece bu
+    sampiyonun gercekten aldigi item'lar arasindan seciyor - hicbir item
+    Riot'un "onerilen build"inden ya da genel bir listeden gelmiyor."""
+    entry = general_build.get((lane, my_champion))
+    if entry is None:
+        return None
+
+    enemy_vec = attributes.get(enemy_champion)
+    enemy_damage_type = damage_types.get(enemy_champion)
+    if enemy_vec is None:
+        return None
+
+    reasoning = []
+
+    def _rerank(pool, is_boots):
+        scored = []
+        for it in pool:
+            categories = item_metadata.get(it["item_id"], {}).get("categories", [])
+            multiplier, reasons = _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type)
+            scored.append((it["pick_rate"] * multiplier, it, reasons))
+        scored.sort(key=lambda t: -t[0])
+        for _, _, reasons in scored:
+            for reason in reasons:
+                if reason not in reasoning:
+                    reasoning.append(reason)
+        return [it for _, it, _ in scored]
+
+    ranked_boots = _rerank(entry["top_boots"], is_boots=True)
+    ranked_core = _rerank(entry["top_core_items"], is_boots=False)
+
+    return {
+        "top_boots": ranked_boots[:1],
+        "top_core_items": ranked_core[:top_n_core],
+        "top_rune_combo": entry["top_rune_combo"],
+        "win_games_used": entry["win_games_used"],
+        "reasoning": reasoning,
+    }
+
+
 def get_matchup_report(my_champion, enemy_champion, lane,
                         model1_table, gold_cs_table, item_rune_lookup, general_build,
-                        item_names, perk_names, attributes):
+                        item_names, perk_names, attributes, item_metadata, damage_types):
     win_row = model1_table[
         (model1_table["TeamPosition"] == lane)
         & (model1_table["ChampionName"] == my_champion)
@@ -190,7 +289,20 @@ def get_matchup_report(my_champion, enemy_champion, lane,
         )
         return report
 
-    # --- Katman 3: son care - rakipten tamamen bagimsiz genel build ---
+    # --- Katman 3: son care - rakibin stat profiline gore yeniden siralanmis
+    # genel build (bkz. _stat_based_build) ---
+    stat_build = _stat_based_build(my_champion, lane, enemy_champion, general_build,
+                                    item_metadata, attributes, damage_types)
+    if stat_build is not None:
+        report["build_source"] = "stat_based_fallback"
+        report["build_sample_size"] = stat_build["win_games_used"]
+        report["stat_reasoning"] = stat_build["reasoning"]
+        report["top_boots"] = _translate_items(stat_build["top_boots"], item_names) if stat_build["top_boots"] else None
+        report["top_core_items"] = _translate_items(stat_build["top_core_items"], item_names)
+        report["rune_combo"] = _translate_rune_combo(stat_build["top_rune_combo"], perk_names)
+        return report
+
+    # --- Son care: rakip stat verisi de yoksa (cok nadir), duz genel build ---
     general = general_build.get((lane, my_champion))
     if general is None:
         report["build_source"] = None
@@ -201,8 +313,8 @@ def get_matchup_report(my_champion, enemy_champion, lane,
 
     report["build_source"] = "general_fallback"
     report["build_sample_size"] = general["win_games_used"]
-    report["top_boots"] = _translate_items(general["top_boots"], item_names) if general["top_boots"] else None
-    report["top_core_items"] = _translate_items(general["top_core_items"], item_names)
+    report["top_boots"] = _translate_items(general["top_boots"][:1], item_names) if general["top_boots"] else None
+    report["top_core_items"] = _translate_items(general["top_core_items"][:5], item_names)
     report["rune_combo"] = _translate_rune_combo(general["top_rune_combo"], perk_names)
 
     return report
