@@ -158,12 +158,18 @@ def _similarity_weighted_build(my_champion, enemy_champion, lane, item_rune_look
 def _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type):
     """Bir item'in rakibe karsi ne kadar 'mantikli' oldugunu, rakibin stat
     profiline gore bir carpan olarak doner (1.0 = notr, notr'un uzerinde
-    daha oncelikli). Tamamen Community Dragon'un gercek item
-    kategorilerine (Armor, SpellBlock, Tenacity, ArmorPenetration,
-    MagicPenetration, Slow) ve Meraki'nin rakip stat profiline dayanir -
-    hicbir sayisal deger uydurulmuyor, sadece bilinen oyun mantigi
-    (fiziksel hasara karsi zirh, agir CC'ye karsi tenacity vb.)
-    kategori eslesmesi olarak kodlanmis."""
+    daha oncelikli) ve HANGI ozelligin bu iteme neden anlam kattigini
+    aciklayan bir 'reasons' listesi uretir. Tamamen Community Dragon'un
+    gercek item kategorilerine (Armor, SpellBlock, Health, ArmorPenetration,
+    MagicPenetration, SpellDamage/Damage, Slow, Tenacity) ve Meraki'nin
+    rakip stat profiline (hasar/dayaniklilik/kontrol/hareketlilik, 0-3
+    olcek) dayanir - hicbir sayisal deger uydurulmuyor, sadece bilinen
+    oyun mantigi (fiziksel hasara karsi zirh, dayaniksiz rakibe karsi
+    burst, agir CC'ye karsi tenacity vb.) kategori eslesmesi olarak
+    kodlanmis. Esikler (MODERATE_ATTR_THRESHOLD=2) kasitli olarak
+    "sadece en ucta (3)" degil "belirgin sekilde var (2+)" seviyesinde
+    tutuluyor - amac, ONERILEN HER ITEM icin - sadece birkac uc durumda
+    degil - matchup'a ozel bir gerekce uretebilmek."""
     damage, toughness, control, mobility, utility = enemy_vec
     score = 1.0
     reasons = []
@@ -178,20 +184,26 @@ def _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type):
         score *= 1.2
         reasons.append("rakip karma hasar veriyor -> karma savunma")
 
-    if toughness >= HIGH_ATTR_THRESHOLD and ("ArmorPenetration" in categories or "MagicPenetration" in categories):
+    # Rakibin ham hasar puani yuksekse (hangi tipten olursa olsun agir vuruyor),
+    # ekstra can havuzu da ayakta kalmayi kolaylastirir.
+    if damage >= MODERATE_ATTR_THRESHOLD and "Health" in categories:
+        score *= 1.2
+        reasons.append("rakip yuksek hasar veriyor -> ekstra can havuzu hayatta kalmayi kolaylastirir")
+
+    if toughness >= MODERATE_ATTR_THRESHOLD and ("ArmorPenetration" in categories or "MagicPenetration" in categories):
         score *= 1.4
         reasons.append("rakip dayanikli (yuksek can/direnc) -> nufuz/delme")
     elif toughness <= LOW_ATTR_THRESHOLD and ("SpellDamage" in categories or "Damage" in categories):
         score *= 1.15
         reasons.append("rakip dayaniksiz (dusuk can/direnc) -> yuksek hasarli item'lar hizlica eritir")
 
-    if mobility >= HIGH_ATTR_THRESHOLD and "Slow" in categories:
+    if mobility >= MODERATE_ATTR_THRESHOLD and "Slow" in categories:
         score *= 1.3
         reasons.append("rakip hareketliligi yuksek -> yavaslatma")
 
-    if is_boots and control >= MODERATE_ATTR_THRESHOLD and "Tenacity" in categories:
-        score *= 2.0
-        reasons.append("rakipte belirgin CC var -> tenacity cizme")
+    if control >= MODERATE_ATTR_THRESHOLD and "Tenacity" in categories:
+        score *= 2.0 if is_boots else 1.3
+        reasons.append("rakipte belirgin CC var -> tenacity" + (" cizme" if is_boots else ""))
 
     return score, reasons
 
