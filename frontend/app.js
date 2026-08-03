@@ -189,6 +189,7 @@ function renderItemGrid(items) {
       <div>
         <div>${it.name}</div>
         <div class="pick-rate">%${(it.pick_rate * 100).toFixed(0)} maçta</div>
+        ${(it.reasons || []).map((r) => `<div class="item-reason">${r}</div>`).join("")}
       </div>
     </div>
   `).join("")}</div>`;

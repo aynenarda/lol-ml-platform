@@ -125,14 +125,18 @@ while True:
             print(f"   {report['build_sample_size']} kazanilan mactan cikarildi.")
 
         if report["top_boots"]:
-            print(f"Cizme: {report['top_boots'][0]['name']}  "
-                  f"(%{report['top_boots'][0]['pick_rate']*100:.0f} maçta)")
+            boots = report["top_boots"][0]
+            print(f"Cizme: {boots['name']}  (%{boots['pick_rate']*100:.0f} maçta)")
+            for reason in boots["reasons"]:
+                print(f"   -> {reason}")
         else:
             print("Cizme: bu sampiyon icin belirgin bir cizme tercihi yok.")
 
         print("Cekirdek item'lar (siralanmamis, trinket ve erken oyun item'lari haric):")
         for item in report["top_core_items"]:
             print(f"   {item['name']}  (%{item['pick_rate']*100:.0f} maçta var)")
+            for reason in item["reasons"]:
+                print(f"      -> {reason}")
 
         combo = report["rune_combo"]
         print(f"\nEn cok kazandiran rune kombinasyonu (%{combo['pick_rate']*100:.0f} maçta):")

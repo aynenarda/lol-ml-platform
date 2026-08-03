@@ -67,15 +67,25 @@ def load_model2_data():
             item_names, perk_names, attributes, item_metadata, damage_types)
 
 
-def _translate_items(item_list, item_names):
-    return [
-        {
+def _translate_items(item_list, item_names, base_reason_template=None):
+    """item_id/pick_rate'i isme cevirir ve her item'in ALTINA, o item'in
+    NEDEN onerildigini aciklayan bir 'reasons' listesi ekler:
+    - varsa item'a ozel gerekce (orn. stat-tabanli rerank'tan gelen
+      "rakip agirlikli fiziksel hasar -> zirh" gibi kategori eslesmesi),
+    - her zaman, o katmanin veri kaynagina gore genel bir gerekce
+      (orn. "bu eslesmede kazanilan maclarin %79'unda tercih edildi")."""
+    result = []
+    for it in item_list:
+        reasons = list(it.get("reasons", []))
+        if base_reason_template:
+            reasons.append(base_reason_template.format(pct=it["pick_rate"] * 100))
+        result.append({
             "item_id": it["item_id"],
             "name": item_names.get(it["item_id"], f"ID:{it['item_id']}"),
             "pick_rate": it["pick_rate"],
-        }
-        for it in item_list
-    ]
+            "reasons": reasons,
+        })
+    return result
 
 
 def _translate_rune_combo(combo, perk_names):
@@ -205,13 +215,13 @@ def _stat_based_build(my_champion, lane, enemy_champion, general_build,
         for it in pool:
             categories = item_metadata.get(it["item_id"], {}).get("categories", [])
             multiplier, reasons = _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type)
-            scored.append((it["pick_rate"] * multiplier, it, reasons))
-        scored.sort(key=lambda t: -t[0])
-        for _, _, reasons in scored:
+            item_with_reasons = {**it, "reasons": reasons}
+            scored.append((it["pick_rate"] * multiplier, item_with_reasons))
             for reason in reasons:
                 if reason not in reasoning:
                     reasoning.append(reason)
-        return [it for _, it, _ in scored]
+        scored.sort(key=lambda t: -t[0])
+        return [it for _, it in scored]
 
     ranked_boots = _rerank(entry["top_boots"], is_boots=True)
     ranked_core = _rerank(entry["top_core_items"], is_boots=False)
@@ -276,8 +286,9 @@ def get_matchup_report(my_champion, enemy_champion, lane,
     if item_rune:
         report["build_source"] = "matchup_specific"
         report["build_sample_size"] = item_rune["win_games_used"]
-        report["top_boots"] = _translate_items(item_rune["top_boots"], item_names)
-        report["top_core_items"] = _translate_items(item_rune["top_core_items"], item_names)
+        matchup_reason = "Bu eşleşmede kazanılan maçların %{pct:.0f}'inde tercih edildi."
+        report["top_boots"] = _translate_items(item_rune["top_boots"], item_names, matchup_reason)
+        report["top_core_items"] = _translate_items(item_rune["top_core_items"], item_names, matchup_reason)
         report["rune_combo"] = _translate_rune_combo(item_rune["top_rune_combo"], perk_names)
         return report
 
@@ -286,8 +297,13 @@ def get_matchup_report(my_champion, enemy_champion, lane,
     if similarity_build:
         report["build_source"] = "similarity_fallback"
         report["similar_opponents"] = similarity_build["neighbors_used"]
-        report["top_boots"] = _translate_items(similarity_build["top_boots"], item_names)
-        report["top_core_items"] = _translate_items(similarity_build["top_core_items"], item_names)
+        neighbors_str = ", ".join(similarity_build["neighbors_used"])
+        similarity_reason = (
+            f"Rakibe profil olarak benzeyen rakiplere karşı ({neighbors_str}) "
+            "kazanılan maçlarda %{pct:.0f} ağırlıklı tercih edildi."
+        )
+        report["top_boots"] = _translate_items(similarity_build["top_boots"], item_names, similarity_reason)
+        report["top_core_items"] = _translate_items(similarity_build["top_core_items"], item_names, similarity_reason)
         report["rune_combo"] = (
             _translate_rune_combo(similarity_build["top_rune_combo"], perk_names)
             if similarity_build["top_rune_combo"] else None
@@ -302,8 +318,11 @@ def get_matchup_report(my_champion, enemy_champion, lane,
         report["build_source"] = "stat_based_fallback"
         report["build_sample_size"] = stat_build["win_games_used"]
         report["stat_reasoning"] = stat_build["reasoning"]
-        report["top_boots"] = _translate_items(stat_build["top_boots"], item_names) if stat_build["top_boots"] else None
-        report["top_core_items"] = _translate_items(stat_build["top_core_items"], item_names)
+        stat_reason = "Bu şampiyonun (rakipten bağımsız) genel build'inde %{pct:.0f} oranında yer alıyor."
+        report["top_boots"] = (
+            _translate_items(stat_build["top_boots"], item_names, stat_reason) if stat_build["top_boots"] else None
+        )
+        report["top_core_items"] = _translate_items(stat_build["top_core_items"], item_names, stat_reason)
         report["rune_combo"] = _translate_rune_combo(stat_build["top_rune_combo"], perk_names)
         return report
 
@@ -318,8 +337,11 @@ def get_matchup_report(my_champion, enemy_champion, lane,
 
     report["build_source"] = "general_fallback"
     report["build_sample_size"] = general["win_games_used"]
-    report["top_boots"] = _translate_items(general["top_boots"][:1], item_names) if general["top_boots"] else None
-    report["top_core_items"] = _translate_items(general["top_core_items"][:5], item_names)
+    general_reason = "Rakipten bağımsız olarak bu şampiyonun genel build'inde %{pct:.0f} oranında yer alıyor."
+    report["top_boots"] = (
+        _translate_items(general["top_boots"][:1], item_names, general_reason) if general["top_boots"] else None
+    )
+    report["top_core_items"] = _translate_items(general["top_core_items"][:5], item_names, general_reason)
     report["rune_combo"] = _translate_rune_combo(general["top_rune_combo"], perk_names)
 
     return report

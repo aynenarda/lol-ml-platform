@@ -436,24 +436,34 @@ main {
 }
 
 .item-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 10px;
 }
 
 .item-chip {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px 8px 8px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   font-size: 12.5px;
 }
 
-.item-chip img { width: 32px; height: 32px; border-radius: 6px; }
-.item-chip .pick-rate { color: var(--text-lo); font-size: 11px; }
+.item-chip img { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; margin-top: 2px; }
+.item-chip .pick-rate { color: var(--text-lo); font-size: 11px; margin: 2px 0 4px; }
+
+.item-reason {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--gold-bright);
+  opacity: 0.85;
+  margin-top: 3px;
+}
+
+.item-reason::before { content: "→ "; opacity: 0.7; }
 
 .rune-row {
   display: flex;
