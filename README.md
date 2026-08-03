@@ -119,18 +119,37 @@ Düzeltme: `categories` içinde `"Trinket"` olanlar hep atlanıyor, fiyatı
 bu yüzden çekirdek item'lar "1. item, 2. item" diye değil, sıralanmamış
 bir "en sık görülen set" olarak sunuluyor; çizme ise ayrı ve net.
 
-**Kademeli fallback (az oynanan eşleşmeler için):** Model 1'deki "yetersiz veri
-→ öğrenilen modele düş" prensibinin aynısı burada da uygulandı:
-1. Bu eşleşmeye özel veri (`MIN_GAMES_FOR_BUILD=15` eşiği geçiyorsa)
-2. **Çizme için:** rakibin hasar tipine göre genelleme — `data/external/champion_damage_types.json`
-   (Community Dragon'ın `tacticalInfo.damageType` alanı, 233 şampiyon için toplu çekildi —
-   **not:** Meraki'nin `adaptiveType` alanı güvenilmez çıktı, örn. Akali'yi yanlışlıkla
-   "PHYSICAL_DAMAGE" gösteriyordu, oysa tam bir AP suikastçı)
-3. **Son çare:** şampiyonun rakipten bağımsız genel build'i — önceki bulgumuz (çekirdek
-   item'ların büyük ölçüde rakipten bağımsız olduğu) sayesinde bilgi kaybı az
+**Kademeli fallback (az/hiç oynanan eşleşmeler için):** Model 1'deki "yetersiz
+veri → öğrenilen modele düş" prensibinin aynısı burada da uygulandı, ama daha
+zengin bir versiyonu ile:
 
-Çıktıda hangi katmanın kullanıldığı açıkça etiketleniyor (`"bu eşleşmeye özel veri"` /
-`"rakibin hasar tipine göre genelleme"` / `"şampiyonun genel build'i"`).
+1. **Win rate/gold/CS:** bu çift hiç oynanmamışsa (Model 1'in sayma tablosunda
+   satır yoksa), `prediction_engine/learned_fallback.py`'deki eğitilmiş Blade &
+   Chest modelinden tek bir tahmin alınıyor (`predict_single_matchup`) —
+   böylece rapor tamamen boş dönmüyor.
+2. **Item/rune (katman 1):** bu eşleşmeye özel veri (`MIN_GAMES_FOR_BUILD=15`
+   eşiği geçiyorsa).
+3. **Item/rune (katman 2 — asıl istenen "AI gibi karar verme" mekanizması):**
+   rakibin **tüm özellik profiline** (hasar/dayanıklılık/kontrol/hareketlilik/
+   yardım — Meraki'nin `attributeRatings`'i, 1-3 ölçek) göre, şampiyonun **daha
+   önce karşılaştığı EN BENZER rakiplerden** (k-NN, `K_NEIGHBORS=5`, ters
+   Öklid mesafesiyle ağırlıklandırılmış) genelleme yapılıyor. Bu, önceki
+   "rakibin hasar tipine göre genelleme" (tek boyutlu, kaba) yaklaşımının
+   yerini aldı — artık kontrol/hareketlilik/dayanıklılık da hesaba katılıyor.
+   Çıktıda **hangi şampiyonların "benzer" bulunduğu açıkça gösteriliyor**
+   (`similar_opponents`) — şeffaflık için, çünkü kandidat havuzu (şampiyonun
+   o lane'de gerçekten karşılaştığı rakipler) zayıfsa (örn. bir Destek
+   şampiyonun TOP'ta hiç emsali yoksa), eşleşme kalitesi de zayıf olabilir,
+   bunu gizlemiyoruz.
+4. **Item/rune (katman 3, son çare):** k-NN'de HİÇ komşu bulunamazsa (o
+   şampiyonun o lane'de tier-1 eşiğini geçen tek bir rakibi bile yoksa),
+   şampiyonun rakipten bağımsız genel build'ine düşülüyor.
+
+**Doğrulama:** Jax vs Yuumi TOP (0 doğrudan maç) → Blade & Chest'ten win rate
+tahmini + k-NN'den Irelia/Gnar/Jayce/Yasuo/Shen'e benzeyen (Öklid mesafesi
+matematiksel olarak doğrulandı) bir build önerisi. Not: Yuumi TOP'ta hiç
+emsali olmayan bir seçim olduğu için eşleşme kalitesi zayıf — bu dürüstçe
+"benzer bulunan rakipler" listesinde görünür durumda, gizlenmiyor.
 
 **Doğrulama (Jax vs Renekton, TOP):** `Trinity Force (%94)`, çizme olarak
 `Plated Steelcaps (%41)` — Renekton'a (AD bruiser) karşı mantıklı bir zırh

@@ -28,16 +28,13 @@ LANE_ALIASES = {
 
 BUILD_SOURCE_LABELS = {
     "matchup_specific": "bu eslesmeye ozel veri",
-    "general_fallback": "yetersiz eslesme verisi - sampiyonun genel build'i kullanildi",
-}
-BOOTS_SOURCE_LABELS = {
-    "damage_type_fallback": "rakibin hasar tipine gore genelleme",
-    "general_fallback": "sampiyonun genel cizme tercihi",
+    "similarity_fallback": "rakibin ozellik profiline benzer rakiplerden genelleme",
+    "general_fallback": "yetersiz veri - sampiyonun genel build'i kullanildi",
 }
 
 print("Veri yukleniyor...")
-(model1_table, gold_cs_table, item_rune_lookup, boots_by_damage_type,
- general_build, item_names, perk_names, damage_types) = load_model2_data()
+(model1_table, gold_cs_table, item_rune_lookup,
+ general_build, item_names, perk_names, attributes) = load_model2_data()
 
 all_champions = pd.concat([model1_table["ChampionName"], model1_table["ChampionName_opp"]]).unique().tolist()
 learned_aliases = load_aliases()
@@ -87,8 +84,8 @@ while True:
 
     report = get_matchup_report(
         my_champion, enemy_champion, lane,
-        model1_table, gold_cs_table, item_rune_lookup, boots_by_damage_type,
-        general_build, item_names, perk_names, damage_types,
+        model1_table, gold_cs_table, item_rune_lookup,
+        general_build, item_names, perk_names, attributes,
     )
 
     if report is None:
@@ -97,8 +94,13 @@ while True:
 
     print()
     print(f"=== {report['my_champion']} vs {report['enemy_champion']} ({lane}) ===")
-    print(f"Win rate: %{report['win_rate']*100:.1f}  "
-          f"(guven-ayarli: %{report['confidence_score']*100:.1f}, {report['games']} mac)")
+    if report["win_rate_source"] == "learned_model_fallback":
+        print(f"Win rate: %{report['win_rate']*100:.1f}  "
+              "(DIKKAT: bu ciftin dogrudan mac verisi yok - Blade & Chest "
+              "modelinin tahmini, gercek gozlem degil)")
+    else:
+        print(f"Win rate: %{report['win_rate']*100:.1f}  "
+              f"(guven-ayarli: %{report['confidence_score']*100:.1f}, {report['games']} mac)")
 
     if "expected_gold_diff" in report:
         print(f"Beklenen gold farki (10 dk'da degil, mac genelinde): {report['expected_gold_diff']:+.0f}")
@@ -106,15 +108,17 @@ while True:
 
     if report["top_core_items"] is not None:
         source_label = BUILD_SOURCE_LABELS.get(report["build_source"], report["build_source"])
-        print(f"\n(Kaynak: {source_label} — {report['build_sample_size']} kazanilan mac. "
-              "NOT: satin alma sirasi degil, mac sonundaki en sik gorulen item'lar)")
+        print(f"\n(Kaynak: {source_label}. "
+              "NOT: satin alma sirasi degil, en sik gorulen item'lar)")
+
+        if report["build_source"] == "similarity_fallback":
+            print(f"   Benzer bulunan rakipler: {', '.join(report['similar_opponents'])}")
+        elif "build_sample_size" in report:
+            print(f"   {report['build_sample_size']} kazanilan mactan cikarildi.")
 
         if report["top_boots"]:
-            boots_note = ""
-            if report.get("boots_source"):
-                boots_note = f"  [{BOOTS_SOURCE_LABELS.get(report['boots_source'], report['boots_source'])}]"
             print(f"Cizme: {report['top_boots'][0]['name']}  "
-                  f"(%{report['top_boots'][0]['pick_rate']*100:.0f} maçta){boots_note}")
+                  f"(%{report['top_boots'][0]['pick_rate']*100:.0f} maçta)")
         else:
             print("Cizme: bu sampiyon icin belirgin bir cizme tercihi yok.")
 

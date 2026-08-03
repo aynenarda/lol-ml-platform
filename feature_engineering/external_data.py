@@ -64,6 +64,31 @@ def load_item_metadata(path="data/external/items.json"):
     }
 
 
+ATTRIBUTE_KEYS = ["damage", "toughness", "control", "mobility", "utility"]
+
+
+def load_champion_attributes(path="data/external/champions_meraki.json"):
+    """Her sampiyon icin [hasar, dayaniklilik, kontrol, hareketlilik,
+    yardim] vektorunu dondurur (Meraki'nin attributeRatings alani,
+    1-3 olcek). Az oynanan bir eslesmede, rakibin TAM OZELLIK PROFILINE
+    gore "benzer" rakiplere karsi ne yapildigina bakan bir k-NN
+    benzerlik mekanizmasi icin kullanilir - sadece hasar tipi gibi
+    kaba bir etiket degil."""
+    with open(path, encoding="utf-8") as f:
+        meraki_data = json.load(f)
+
+    vectors = {}
+    for name, champ in meraki_data.items():
+        ratings = champ["attributeRatings"]
+        vectors[name] = [ratings[k] for k in ATTRIBUTE_KEYS]
+
+    for our_name, meraki_name in NAME_FIXES.items():
+        if meraki_name in vectors:
+            vectors[our_name] = vectors[meraki_name]
+
+    return vectors
+
+
 def load_champion_damage_types(path="data/external/champion_damage_types.json"):
     """Sampiyon adindan hasar tipine (kPhysical/kMagic/kMixed) sozluk.
     Rakibin hasar tipine gore cizme fallback'i icin kullanilir - Meraki'nin

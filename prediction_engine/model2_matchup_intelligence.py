@@ -5,16 +5,26 @@ burada rakibi DEGIL, kendi secimimi de biliyoruz).
 Cikti: win rate, beklenen gold/cs farki, item onerisi, rune onerisi -
 hepsi bizim mac verimizden, statik veri sadece isimlendirme icin.
 
-Item/rune onerisi KADEMELI: bu matchup'a ozel veri yoksa/azsa, once
-cizme icin rakibin hasar tipine gore genelleme, sonra sampiyonun genel
-build'ine dusuyor - Model 1'deki "yetersiz veri -> ogrenilen modele
-dus" mantiginin ayni prensiple burada uygulanmis hali."""
+Item/rune onerisi 3 KATMANLI:
+1. Bu matchup'a ozel veri (yeterliyse)
+2. k-NN benzerlik agirlikli genelleme: rakibin ozellik profiline
+   (hasar/dayaniklilik/kontrol/hareketlilik/yardim) EN YAKIN, daha once
+   karsilasilmis rakiplerin build'lerinden agirlikli ortalama - "hasar
+   tipi" gibi kaba bir etiketten CoK daha zengin bir benzerlik olcusu.
+3. Son care: sampiyonun rakipten tamamen bagimsiz genel build'i
+   (yalnizca katman 2'de HIC benzer rakip bulunamazsa).
+"""
 
 import json
+import math
+from collections import Counter
 
 import pandas as pd
 
-from feature_engineering.external_data import load_item_names, load_perk_names, load_champion_damage_types
+from feature_engineering.external_data import load_item_names, load_perk_names, load_champion_attributes
+from prediction_engine.learned_fallback import predict_single_matchup
+
+K_NEIGHBORS = 5
 
 
 def load_model2_data():
@@ -28,19 +38,15 @@ def load_model2_data():
         for r in item_rune_list
     }
 
-    with open("data/processed/model2_boots_by_damage_type.json", encoding="utf-8") as f:
-        boots_raw = json.load(f)
-    boots_by_damage_type = {tuple(k.split("|")): v for k, v in boots_raw.items()}
-
     with open("data/processed/model2_general_build.json", encoding="utf-8") as f:
         general_raw = json.load(f)
     general_build = {tuple(k.split("|")): v for k, v in general_raw.items()}
 
     item_names = load_item_names()
     perk_names = load_perk_names()
-    damage_types = load_champion_damage_types()
+    attributes = load_champion_attributes()
 
-    return model1_table, gold_cs_table, item_rune_lookup, boots_by_damage_type, general_build, item_names, perk_names, damage_types
+    return model1_table, gold_cs_table, item_rune_lookup, general_build, item_names, perk_names, attributes
 
 
 def _translate_items(item_list, item_names):
@@ -57,9 +63,67 @@ def _translate_rune_combo(combo, perk_names):
     }
 
 
+def _euclidean_distance(vec_a, vec_b):
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(vec_a, vec_b)))
+
+
+def _similarity_weighted_build(my_champion, enemy_champion, lane, item_rune_lookup, attributes, top_n_core=5):
+    """Rakibin ozellik profiline en yakin, daha once karsilasilmis
+    rakiplerin build'lerini benzerlige gore agirlikli birlestirir."""
+    enemy_vec = attributes.get(enemy_champion)
+    if enemy_vec is None:
+        return None
+
+    candidates = []
+    for (l, champ, opp), entry in item_rune_lookup.items():
+        if l != lane or champ != my_champion or opp == enemy_champion:
+            continue
+        opp_vec = attributes.get(opp)
+        if opp_vec is None:
+            continue
+        distance = _euclidean_distance(enemy_vec, opp_vec)
+        similarity = 1.0 / (1.0 + distance)
+        candidates.append((similarity, opp, entry))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda c: -c[0])
+    neighbors = candidates[:K_NEIGHBORS]
+    total_similarity = sum(sim for sim, _, _ in neighbors)
+
+    boots_scores = Counter()
+    core_scores = Counter()
+    rune_scores = Counter()
+
+    for similarity, _, entry in neighbors:
+        weight = similarity / total_similarity
+        for it in entry["top_boots"]:
+            boots_scores[it["item_id"]] += weight * it["pick_rate"]
+        for it in entry["top_core_items"]:
+            core_scores[it["item_id"]] += weight * it["pick_rate"]
+        combo_key = tuple(sorted(entry["top_rune_combo"]["perk_ids"].items()))
+        rune_scores[combo_key] += weight * entry["top_rune_combo"]["pick_rate"]
+
+    top_boots = [{"item_id": iid, "pick_rate": score} for iid, score in boots_scores.most_common(1)]
+    top_core = [{"item_id": iid, "pick_rate": score} for iid, score in core_scores.most_common(top_n_core)]
+
+    top_rune_combo = None
+    if rune_scores:
+        combo_key, score = rune_scores.most_common(1)[0]
+        top_rune_combo = {"perk_ids": dict(combo_key), "pick_rate": score}
+
+    return {
+        "top_boots": top_boots,
+        "top_core_items": top_core,
+        "top_rune_combo": top_rune_combo,
+        "neighbors_used": [opp for _, opp, _ in neighbors],
+    }
+
+
 def get_matchup_report(my_champion, enemy_champion, lane,
-                        model1_table, gold_cs_table, item_rune_lookup, boots_by_damage_type,
-                        general_build, item_names, perk_names, damage_types):
+                        model1_table, gold_cs_table, item_rune_lookup, general_build,
+                        item_names, perk_names, attributes):
     win_row = model1_table[
         (model1_table["TeamPosition"] == lane)
         & (model1_table["ChampionName"] == my_champion)
@@ -72,16 +136,32 @@ def get_matchup_report(my_champion, enemy_champion, lane,
     ]
 
     if win_row.empty:
-        return None
-
-    report = {
-        "my_champion": my_champion,
-        "enemy_champion": enemy_champion,
-        "lane": lane,
-        "games": int(win_row.iloc[0]["games"]),
-        "win_rate": float(win_row.iloc[0]["win_rate"]),
-        "confidence_score": float(win_row.iloc[0]["confidence_score"]),
-    }
+        # Model 1'in sayma tablosunda bu cift hic yok (0 mac) - Model 1'in
+        # kendi ogrenilen model fallback'ine (Blade & Chest) dusuyoruz,
+        # boylece rapor tamamen bos donmek yerine en azindan bir tahmin
+        # (ve item k-NN fallback'i) uretebiliyor.
+        learned_prob = predict_single_matchup(my_champion, enemy_champion, lane)
+        if learned_prob is None:
+            return None
+        report = {
+            "my_champion": my_champion,
+            "enemy_champion": enemy_champion,
+            "lane": lane,
+            "games": 0,
+            "win_rate": learned_prob,
+            "confidence_score": None,
+            "win_rate_source": "learned_model_fallback",
+        }
+    else:
+        report = {
+            "my_champion": my_champion,
+            "enemy_champion": enemy_champion,
+            "lane": lane,
+            "games": int(win_row.iloc[0]["games"]),
+            "win_rate": float(win_row.iloc[0]["win_rate"]),
+            "confidence_score": float(win_row.iloc[0]["confidence_score"]),
+            "win_rate_source": "matchup_specific",
+        }
 
     if not gold_cs_row.empty:
         report["expected_gold_diff"] = float(gold_cs_row.iloc[0]["expected_gold_diff"])
@@ -97,7 +177,20 @@ def get_matchup_report(my_champion, enemy_champion, lane,
         report["rune_combo"] = _translate_rune_combo(item_rune["top_rune_combo"], perk_names)
         return report
 
-    # --- Katman 2/3: fallback - once genel build'i dene ---
+    # --- Katman 2: ozellik-benzerligi agirlikli k-NN genellemesi ---
+    similarity_build = _similarity_weighted_build(my_champion, enemy_champion, lane, item_rune_lookup, attributes)
+    if similarity_build:
+        report["build_source"] = "similarity_fallback"
+        report["similar_opponents"] = similarity_build["neighbors_used"]
+        report["top_boots"] = _translate_items(similarity_build["top_boots"], item_names)
+        report["top_core_items"] = _translate_items(similarity_build["top_core_items"], item_names)
+        report["rune_combo"] = (
+            _translate_rune_combo(similarity_build["top_rune_combo"], perk_names)
+            if similarity_build["top_rune_combo"] else None
+        )
+        return report
+
+    # --- Katman 3: son care - rakipten tamamen bagimsiz genel build ---
     general = general_build.get((lane, my_champion))
     if general is None:
         report["build_source"] = None
@@ -108,23 +201,8 @@ def get_matchup_report(my_champion, enemy_champion, lane,
 
     report["build_source"] = "general_fallback"
     report["build_sample_size"] = general["win_games_used"]
+    report["top_boots"] = _translate_items(general["top_boots"], item_names) if general["top_boots"] else None
     report["top_core_items"] = _translate_items(general["top_core_items"], item_names)
     report["rune_combo"] = _translate_rune_combo(general["top_rune_combo"], perk_names)
-
-    # Cizme icin, genel build'ten once rakibin hasar tipine gore
-    # daha isabetli bir fallback deniyoruz.
-    opp_damage_type = damage_types.get(enemy_champion)
-    boots_key = (lane, my_champion, opp_damage_type) if opp_damage_type else None
-    boots_by_dmg = boots_by_damage_type.get(boots_key) if boots_key else None
-
-    if boots_by_dmg:
-        report["top_boots"] = _translate_items([boots_by_dmg], item_names)
-        report["boots_source"] = "damage_type_fallback"
-    elif general["top_boots"]:
-        report["top_boots"] = _translate_items(general["top_boots"], item_names)
-        report["boots_source"] = "general_fallback"
-    else:
-        report["top_boots"] = None
-        report["boots_source"] = None
 
     return report
