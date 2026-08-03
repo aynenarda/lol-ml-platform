@@ -40,6 +40,7 @@ K_NEIGHBORS = 5
 # Meraki attributeRatings 0-3 olcek; 3 = o ozellikte belirgin sekilde guclu.
 HIGH_ATTR_THRESHOLD = 3
 MODERATE_ATTR_THRESHOLD = 2
+LOW_ATTR_THRESHOLD = 1
 
 
 def load_model2_data():
@@ -180,6 +181,9 @@ def _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type):
     if toughness >= HIGH_ATTR_THRESHOLD and ("ArmorPenetration" in categories or "MagicPenetration" in categories):
         score *= 1.4
         reasons.append("rakip dayanikli (yuksek can/direnc) -> nufuz/delme")
+    elif toughness <= LOW_ATTR_THRESHOLD and ("SpellDamage" in categories or "Damage" in categories):
+        score *= 1.15
+        reasons.append("rakip dayaniksiz (dusuk can/direnc) -> yuksek hasarli item'lar hizlica eritir")
 
     if mobility >= HIGH_ATTR_THRESHOLD and "Slow" in categories:
         score *= 1.3
@@ -235,9 +239,28 @@ def _stat_based_build(my_champion, lane, enemy_champion, general_build,
     }
 
 
+def _annotate_stat_reasons(item_list, item_metadata, is_boots, enemy_vec, enemy_damage_type):
+    """Bir item listesinin SIRASINI DEGISTIRMEDEN (bu tier'in kendi gercek
+    veri sirasi korunur), her item'a rakibin somut stat profiline gore
+    'bu item NEDEN bu rakibe karsi mantikli' aciklamasi ekler. Boylece
+    tier-1 (bu eslesmeye ozel gozlem) gibi zaten guvenilir veriye sahip
+    katmanlarda bile, sadece 'X mactan Y'si bunu aldi' degil, 'bunu almak
+    rakibin su ozelligi yuzunden mantikli' bilgisi de gosterilir."""
+    if enemy_vec is None:
+        return [dict(it) for it in item_list]
+    annotated = []
+    for it in item_list:
+        categories = item_metadata.get(it["item_id"], {}).get("categories", [])
+        _, reasons = _item_category_score(categories, is_boots, enemy_vec, enemy_damage_type)
+        annotated.append({**it, "reasons": reasons})
+    return annotated
+
+
 def get_matchup_report(my_champion, enemy_champion, lane,
                         model1_table, gold_cs_table, item_rune_lookup, general_build,
                         item_names, perk_names, attributes, item_metadata, damage_types):
+    enemy_vec = attributes.get(enemy_champion)
+    enemy_damage_type = damage_types.get(enemy_champion)
     win_row = model1_table[
         (model1_table["TeamPosition"] == lane)
         & (model1_table["ChampionName"] == my_champion)
@@ -287,8 +310,10 @@ def get_matchup_report(my_champion, enemy_champion, lane,
         report["build_source"] = "matchup_specific"
         report["build_sample_size"] = item_rune["win_games_used"]
         matchup_reason = "Bu eşleşmede kazanılan maçların %{pct:.0f}'inde tercih edildi."
-        report["top_boots"] = _translate_items(item_rune["top_boots"], item_names, matchup_reason)
-        report["top_core_items"] = _translate_items(item_rune["top_core_items"], item_names, matchup_reason)
+        annotated_boots = _annotate_stat_reasons(item_rune["top_boots"], item_metadata, True, enemy_vec, enemy_damage_type)
+        annotated_core = _annotate_stat_reasons(item_rune["top_core_items"], item_metadata, False, enemy_vec, enemy_damage_type)
+        report["top_boots"] = _translate_items(annotated_boots, item_names, matchup_reason)
+        report["top_core_items"] = _translate_items(annotated_core, item_names, matchup_reason)
         report["rune_combo"] = _translate_rune_combo(item_rune["top_rune_combo"], perk_names)
         return report
 
@@ -302,8 +327,10 @@ def get_matchup_report(my_champion, enemy_champion, lane,
             f"Rakibe profil olarak benzeyen rakiplere karşı ({neighbors_str}) "
             "kazanılan maçlarda %{pct:.0f} ağırlıklı tercih edildi."
         )
-        report["top_boots"] = _translate_items(similarity_build["top_boots"], item_names, similarity_reason)
-        report["top_core_items"] = _translate_items(similarity_build["top_core_items"], item_names, similarity_reason)
+        annotated_boots = _annotate_stat_reasons(similarity_build["top_boots"], item_metadata, True, enemy_vec, enemy_damage_type)
+        annotated_core = _annotate_stat_reasons(similarity_build["top_core_items"], item_metadata, False, enemy_vec, enemy_damage_type)
+        report["top_boots"] = _translate_items(annotated_boots, item_names, similarity_reason)
+        report["top_core_items"] = _translate_items(annotated_core, item_names, similarity_reason)
         report["rune_combo"] = (
             _translate_rune_combo(similarity_build["top_rune_combo"], perk_names)
             if similarity_build["top_rune_combo"] else None
