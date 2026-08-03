@@ -64,6 +64,17 @@ def load_item_metadata(path="data/external/items.json"):
     }
 
 
+def load_champion_damage_types(path="data/external/champion_damage_types.json"):
+    """Sampiyon adindan hasar tipine (kPhysical/kMagic/kMixed) sozluk.
+    Rakibin hasar tipine gore cizme fallback'i icin kullanilir - Meraki'nin
+    'adaptiveType' alani guvenilmez cikti (orn. Akali icin yanlislikla
+    PHYSICAL_DAMAGE diyordu, oysa Akali tam bir AP suikastci) - bu yuzden
+    Community Dragon'in per-champion 'tacticalInfo.damageType' alanindan
+    (233 sampiyon icin tek seferlik toplu cekildi) kullaniyoruz."""
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def load_perk_names(path="data/external/perks.json"):
     """Rune/perk ID -> isim (orn. 8005 -> "Press the Attack") sozlugu."""
     with open(path, encoding="utf-8") as f:

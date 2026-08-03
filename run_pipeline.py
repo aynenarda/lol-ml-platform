@@ -50,11 +50,13 @@ def main():
         print(f"      {row.explanation}")
 
     print()
-    print("6) Model 2 feature store'lari uretiliyor (gold/cs farki + item/rune onerileri)...")
-    gold_cs_table, item_rune_recs = build_model2_data(clean_df)
-    save_model2_data(gold_cs_table, item_rune_recs)
-    print(f"   {len(gold_cs_table)} matchup icin gold/cs farki, "
-          f"{len(item_rune_recs)} matchup icin item/rune onerisi kaydedildi.")
+    print("6) Model 2 feature store'lari uretiliyor (gold/cs farki + kademeli item/rune onerileri)...")
+    gold_cs_table, item_rune_recs, boots_by_damage_type, general_build, damage_types = build_model2_data(clean_df)
+    save_model2_data(gold_cs_table, item_rune_recs, boots_by_damage_type, general_build, damage_types)
+    print(f"   {len(gold_cs_table)} matchup icin gold/cs farki")
+    print(f"   {len(item_rune_recs)} matchup icin ozel item/rune onerisi (katman 1)")
+    print(f"   {len(boots_by_damage_type)} (sampiyon, hasar tipi) icin cizme fallback'i (katman 2)")
+    print(f"   {len(general_build)} sampiyon icin genel build fallback'i (katman 3)")
 
 
 if __name__ == "__main__":

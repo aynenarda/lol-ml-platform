@@ -26,8 +26,18 @@ LANE_ALIASES = {
     "utility": "UTILITY", "support": "UTILITY", "supp": "UTILITY", "sup": "UTILITY", "util": "UTILITY",
 }
 
+BUILD_SOURCE_LABELS = {
+    "matchup_specific": "bu eslesmeye ozel veri",
+    "general_fallback": "yetersiz eslesme verisi - sampiyonun genel build'i kullanildi",
+}
+BOOTS_SOURCE_LABELS = {
+    "damage_type_fallback": "rakibin hasar tipine gore genelleme",
+    "general_fallback": "sampiyonun genel cizme tercihi",
+}
+
 print("Veri yukleniyor...")
-model1_table, gold_cs_table, item_rune_lookup, item_names, perk_names = load_model2_data()
+(model1_table, gold_cs_table, item_rune_lookup, boots_by_damage_type,
+ general_build, item_names, perk_names, damage_types) = load_model2_data()
 
 all_champions = pd.concat([model1_table["ChampionName"], model1_table["ChampionName_opp"]]).unique().tolist()
 learned_aliases = load_aliases()
@@ -77,7 +87,8 @@ while True:
 
     report = get_matchup_report(
         my_champion, enemy_champion, lane,
-        model1_table, gold_cs_table, item_rune_lookup, item_names, perk_names,
+        model1_table, gold_cs_table, item_rune_lookup, boots_by_damage_type,
+        general_build, item_names, perk_names, damage_types,
     )
 
     if report is None:
@@ -94,14 +105,18 @@ while True:
         print(f"Beklenen CS farki: {report['expected_cs_diff']:+.1f}")
 
     if report["top_core_items"] is not None:
-        print(f"\n({report['build_sample_size']} kazanilan mactan cikarilan build - "
+        source_label = BUILD_SOURCE_LABELS.get(report["build_source"], report["build_source"])
+        print(f"\n(Kaynak: {source_label} — {report['build_sample_size']} kazanilan mac. "
               "NOT: satin alma sirasi degil, mac sonundaki en sik gorulen item'lar)")
 
         if report["top_boots"]:
+            boots_note = ""
+            if report.get("boots_source"):
+                boots_note = f"  [{BOOTS_SOURCE_LABELS.get(report['boots_source'], report['boots_source'])}]"
             print(f"Cizme: {report['top_boots'][0]['name']}  "
-                  f"(%{report['top_boots'][0]['pick_rate']*100:.0f} maçta)")
+                  f"(%{report['top_boots'][0]['pick_rate']*100:.0f} maçta){boots_note}")
         else:
-            print("Cizme: bu matchup'ta belirgin bir cizme tercihi yok.")
+            print("Cizme: bu sampiyon icin belirgin bir cizme tercihi yok.")
 
         print("Cekirdek item'lar (siralanmamis, trinket ve erken oyun item'lari haric):")
         for item in report["top_core_items"]:

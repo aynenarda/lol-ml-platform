@@ -91,6 +91,50 @@ def _top_rune_combo(win_rows):
     }
 
 
+def compute_boots_by_damage_type(matchups_df, item_metadata, damage_types):
+    """Fallback katmani 2 (sadece cizme icin): (lane, benim sampiyonum,
+    RAKIBIN HASAR TIPI) bazinda en sik cizme. Belirli bir rakiple yeterli
+    veri olmasa da, "bu rakip fiziksel/buyu hasari veriyor, ben genelde
+    buna karsi ne giyiyorum" sorusuna cevap verir - onceki bulgumuz
+    (cizme rakibin hasar tipine gore degisiyor, cekirdek item'lar degil)
+    dogrudan burada kullaniliyor."""
+    df = matchups_df.copy()
+    df["opp_damage_type"] = df["ChampionName_opp"].map(damage_types)
+    wins_only = df[df["Win"] & df["opp_damage_type"].notna()]
+
+    results = {}
+    for (lane, champ, dmg_type), group in wins_only.groupby(["TeamPosition", "ChampionName", "opp_damage_type"]):
+        if len(group) < MIN_GAMES_FOR_BUILD:
+            continue
+        boots, _ = _top_items(group, item_metadata, top_n=1)
+        if boots:
+            results[(lane, champ, dmg_type)] = boots[0]
+
+    return results
+
+
+def compute_champion_general_build(matchups_df, item_metadata):
+    """Fallback katmani 3 (son care): (lane, benim sampiyonum) bazinda,
+    RAKIPTEN BAGIMSIZ genel build. Onceki bulgumuz: cekirdek item'lar
+    zaten cogunlukla rakipten bagimsiz oldugu icin, bu fallback'te
+    bilgi kaybi az."""
+    wins_only = matchups_df[matchups_df["Win"]]
+
+    results = {}
+    for (lane, champ), group in wins_only.groupby(["TeamPosition", "ChampionName"]):
+        if len(group) < MIN_GAMES_FOR_BUILD:
+            continue
+        boots, core_items = _top_items(group, item_metadata)
+        results[(lane, champ)] = {
+            "win_games_used": len(group),
+            "top_boots": boots,
+            "top_core_items": core_items,
+            "top_rune_combo": _top_rune_combo(group),
+        }
+
+    return results
+
+
 def compute_item_rune_recommendations(matchups_df, item_metadata):
     """Her (lane, benim sampiyonum, rakip) icin, SADECE KAZANILAN
     maclardaki en sik cizme/cekirdek item seti ve rune kombinasyonunu bulur."""

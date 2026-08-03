@@ -15,7 +15,12 @@ mkdir -p data/external
 curl -s "https://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json" -o data/external/champions_meraki.json
 curl -s "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/tr_tr/v1/items.json" -o data/external/items.json
 curl -s "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/tr_tr/v1/perks.json" -o data/external/perks.json
+curl -s "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json" -o data/external/champion_summary.json
 ```
+
+`champion_damage_types.json` toplu indirme gerektirir (233 ayrı istek,
+Community Dragon per-champion endpoint) — betiği README'de saklamıyoruz,
+gerekirse tekrar yazılabilir (bkz. proje geçmişi/commit).
 
 ## Veri Kaynağı
 
@@ -113,6 +118,19 @@ Düzeltme: `categories` içinde `"Trinket"` olanlar hep atlanıyor, fiyatı
 **satın alma sırası değil** (bu, Timeline API gerektirir, elimizde yok) —
 bu yüzden çekirdek item'lar "1. item, 2. item" diye değil, sıralanmamış
 bir "en sık görülen set" olarak sunuluyor; çizme ise ayrı ve net.
+
+**Kademeli fallback (az oynanan eşleşmeler için):** Model 1'deki "yetersiz veri
+→ öğrenilen modele düş" prensibinin aynısı burada da uygulandı:
+1. Bu eşleşmeye özel veri (`MIN_GAMES_FOR_BUILD=15` eşiği geçiyorsa)
+2. **Çizme için:** rakibin hasar tipine göre genelleme — `data/external/champion_damage_types.json`
+   (Community Dragon'ın `tacticalInfo.damageType` alanı, 233 şampiyon için toplu çekildi —
+   **not:** Meraki'nin `adaptiveType` alanı güvenilmez çıktı, örn. Akali'yi yanlışlıkla
+   "PHYSICAL_DAMAGE" gösteriyordu, oysa tam bir AP suikastçı)
+3. **Son çare:** şampiyonun rakipten bağımsız genel build'i — önceki bulgumuz (çekirdek
+   item'ların büyük ölçüde rakipten bağımsız olduğu) sayesinde bilgi kaybı az
+
+Çıktıda hangi katmanın kullanıldığı açıkça etiketleniyor (`"bu eşleşmeye özel veri"` /
+`"rakibin hasar tipine göre genelleme"` / `"şampiyonun genel build'i"`).
 
 **Doğrulama (Jax vs Renekton, TOP):** `Trinity Force (%94)`, çizme olarak
 `Plated Steelcaps (%41)` — Renekton'a (AD bruiser) karşı mantıklı bir zırh
