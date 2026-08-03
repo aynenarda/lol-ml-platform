@@ -68,9 +68,13 @@ def get_matchup_report(my_champion, enemy_champion, lane,
 
     item_rune = item_rune_lookup.get(key)
     if item_rune:
-        report["top_items"] = [
+        report["top_boots"] = [
             {"name": item_names.get(it["item_id"], f"ID:{it['item_id']}"), "pick_rate": it["pick_rate"]}
-            for it in item_rune["top_items"]
+            for it in item_rune["top_boots"]
+        ]
+        report["top_core_items"] = [
+            {"name": item_names.get(it["item_id"], f"ID:{it['item_id']}"), "pick_rate": it["pick_rate"]}
+            for it in item_rune["top_core_items"]
         ]
         combo = item_rune["top_rune_combo"]
         report["rune_combo"] = {
@@ -79,7 +83,8 @@ def get_matchup_report(my_champion, enemy_champion, lane,
         }
         report["build_sample_size"] = item_rune["win_games_used"]
     else:
-        report["top_items"] = None
+        report["top_boots"] = None
+        report["top_core_items"] = None
         report["rune_combo"] = None
 
     return report

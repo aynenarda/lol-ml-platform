@@ -93,9 +93,18 @@ while True:
         print(f"Beklenen gold farki (10 dk'da degil, mac genelinde): {report['expected_gold_diff']:+.0f}")
         print(f"Beklenen CS farki: {report['expected_cs_diff']:+.1f}")
 
-    if report["top_items"]:
-        print(f"\nEn cok kazandiran item'lar ({report['build_sample_size']} kazanilan mactan):")
-        for item in report["top_items"]:
+    if report["top_core_items"] is not None:
+        print(f"\n({report['build_sample_size']} kazanilan mactan cikarilan build - "
+              "NOT: satin alma sirasi degil, mac sonundaki en sik gorulen item'lar)")
+
+        if report["top_boots"]:
+            print(f"Cizme: {report['top_boots'][0]['name']}  "
+                  f"(%{report['top_boots'][0]['pick_rate']*100:.0f} maçta)")
+        else:
+            print("Cizme: bu matchup'ta belirgin bir cizme tercihi yok.")
+
+        print("Cekirdek item'lar (siralanmamis, trinket ve erken oyun item'lari haric):")
+        for item in report["top_core_items"]:
             print(f"   {item['name']}  (%{item['pick_rate']*100:.0f} maçta var)")
 
         combo = report["rune_combo"]

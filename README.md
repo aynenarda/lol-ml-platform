@@ -101,9 +101,23 @@ toplamadık) — bu yüzden kapsam şu an final/çekirdek item build + rün
 - `try_model2.py` — interaktif deneme scripti, alias sistemini (`heim`→`Heimerdinger`)
   hem kendi şampiyonum hem rakip için kullanıyor
 
-**Doğrulama (Jax vs Renekton, TOP):** `Trinity Force (%94)` ve `Grasp of the
-Undying + Demolish + Second Wind` rün sayfası — ikisi de gerçek, bilinen
-Jax build/rün seçimleriyle örtüşüyor.
+**Item filtreleme (önemli düzeltme):** İlk versiyonda tüm 7 envanter slotu
+eşit sayılıyordu — bu, trinket'leri (Kahin Merceği, Görünmez Totem — herkes
+aynı şeyi seçer, matchup'a özgü değil) ve erken oyun/geçici item'ları
+(Doran'ın Kalkanı, Kara Mühür) çekirdek build'in içine karıştırıyordu.
+Düzeltme: `categories` içinde `"Trinket"` olanlar hep atlanıyor, fiyatı
+`< 1000` olanlar (erken oyun item'ları) atlanıyor, `"Boots"` kategorisi
+**ayrı bir öneri** olarak çıkarılıyor (`"hangi çizme alınmalı"`).
+
+**Dürüst sınırlama:** `Item0..Item6`, maç bitişindeki **envanter slotları**,
+**satın alma sırası değil** (bu, Timeline API gerektirir, elimizde yok) —
+bu yüzden çekirdek item'lar "1. item, 2. item" diye değil, sıralanmamış
+bir "en sık görülen set" olarak sunuluyor; çizme ise ayrı ve net.
+
+**Doğrulama (Jax vs Renekton, TOP):** `Trinity Force (%94)`, çizme olarak
+`Plated Steelcaps (%41)` — Renekton'a (AD bruiser) karşı mantıklı bir zırh
+çizmesi seçimi — ve `Grasp of the Undying + Demolish + Second Wind` rün
+sayfası — hepsi gerçek, bilinen Jax build/rün seçimleriyle örtüşüyor.
 
 **Önemli tasarım kararı:** İtem/rün ismi statik veriden geliyor ama **hangi
 item/rün'ün önerileceği tamamen bizim maç verimizden (kazanılan maçlardaki

@@ -42,6 +42,28 @@ def load_item_names(path="data/external/items.json"):
     return {item["id"]: item["name"] for item in items}
 
 
+def load_item_metadata(path="data/external/items.json"):
+    """Item ID -> {name, categories, price} sozlugu. Item'i "cekirdek
+    build" listesine mi, "cizme" onerisine mi koyacagimizi, yoksa hic
+    almayacagimizi (trinket/erken oyun item'i) belirlemek icin gerekli:
+    - Trinket kategorisindekiler (fiyat=0) her zaman ayni, matchup'a
+      ozgu degil -> atlaniyor.
+    - Fiyat < 1000 olanlar (Doran'in Halkasi, Kara Muhur gibi) erken
+      oyun/gecici item'lar -> atlaniyor.
+    - "Boots" kategorisindekiler ayri bir "hangi cizme" onerisine gidiyor.
+    - Kalanlar (fiyat >= 1000, cizme degil) gercek "cekirdek build"."""
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)
+    return {
+        item["id"]: {
+            "name": item["name"],
+            "categories": item.get("categories", []),
+            "price": item.get("priceTotal", 0),
+        }
+        for item in items
+    }
+
+
 def load_perk_names(path="data/external/perks.json"):
     """Rune/perk ID -> isim (orn. 8005 -> "Press the Attack") sozlugu."""
     with open(path, encoding="utf-8") as f:

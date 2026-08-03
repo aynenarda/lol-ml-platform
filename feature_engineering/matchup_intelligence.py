@@ -32,19 +32,52 @@ def compute_gold_cs_diff(matchups_df):
     )
 
 
-def _top_items(win_rows, top_n=6):
-    counter = Counter()
+MIN_CORE_ITEM_PRICE = 1000  # bunun altindaki fiyat = erken oyun/gecici item (Doran's, Kara Muhur..)
+
+
+def _classify_item(item_id, item_metadata):
+    """Item'i 'boots', 'core' ya da None (atlanacak - trinket/erken oyun) olarak siniflandirir."""
+    meta = item_metadata.get(item_id)
+    if meta is None:
+        return None
+    if "Trinket" in meta["categories"]:
+        return None
+    if "Boots" in meta["categories"]:
+        return "boots"
+    if meta["price"] < MIN_CORE_ITEM_PRICE:
+        return None
+    return "core"
+
+
+def _top_items(win_rows, item_metadata, top_n=5):
+    """Item'lari 'boots' (tek oneri) ve 'core' (siralanmamis, en sik
+    goruleni ilk) olarak ikiye ayirir. Trinket ve erken oyun item'lari
+    (Doran's, Kara Muhur vb.) hic sayilmiyor - matchup'a ozgu bilgi
+    tasimiyorlar."""
+    boots_counter = Counter()
+    core_counter = Counter()
     n_games = len(win_rows)
+
     for _, row in win_rows.iterrows():
         for col in ITEM_COLS:
             item_id = row[col]
-            if item_id and item_id != 0:
-                counter[item_id] += 1
+            if not item_id or item_id == 0:
+                continue
+            category = _classify_item(item_id, item_metadata)
+            if category == "boots":
+                boots_counter[item_id] += 1
+            elif category == "core":
+                core_counter[item_id] += 1
 
-    return [
+    boots = [
         {"item_id": item_id, "pick_rate": count / n_games}
-        for item_id, count in counter.most_common(top_n)
+        for item_id, count in boots_counter.most_common(1)
     ]
+    core_items = [
+        {"item_id": item_id, "pick_rate": count / n_games}
+        for item_id, count in core_counter.most_common(top_n)
+    ]
+    return boots, core_items
 
 
 def _top_rune_combo(win_rows):
@@ -58,21 +91,23 @@ def _top_rune_combo(win_rows):
     }
 
 
-def compute_item_rune_recommendations(matchups_df):
+def compute_item_rune_recommendations(matchups_df, item_metadata):
     """Her (lane, benim sampiyonum, rakip) icin, SADECE KAZANILAN
-    maclardaki en sik item seti ve rune kombinasyonunu bulur."""
+    maclardaki en sik cizme/cekirdek item seti ve rune kombinasyonunu bulur."""
     results = []
     wins_only = matchups_df[matchups_df["Win"]]
 
     for (lane, champ, opp), group in wins_only.groupby(["TeamPosition", "ChampionName", "ChampionName_opp"]):
         if len(group) < MIN_GAMES_FOR_BUILD:
             continue
+        boots, core_items = _top_items(group, item_metadata)
         results.append({
             "TeamPosition": lane,
             "ChampionName": champ,
             "ChampionName_opp": opp,
             "win_games_used": len(group),
-            "top_items": _top_items(group),
+            "top_boots": boots,
+            "top_core_items": core_items,
             "top_rune_combo": _top_rune_combo(group),
         })
 

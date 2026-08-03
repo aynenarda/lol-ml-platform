@@ -5,13 +5,15 @@ import json
 
 from feature_engineering.matchups import build_matchups
 from feature_engineering.matchup_intelligence import compute_gold_cs_diff, compute_item_rune_recommendations
+from feature_engineering.external_data import load_item_metadata
 
 
 def build_model2_data(clean_long_df):
     matchups = build_matchups(clean_long_df)
+    item_metadata = load_item_metadata()
 
     gold_cs_table = compute_gold_cs_diff(matchups)
-    item_rune_recs = compute_item_rune_recommendations(matchups)
+    item_rune_recs = compute_item_rune_recommendations(matchups, item_metadata)
 
     return gold_cs_table, item_rune_recs
 
