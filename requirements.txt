@@ -2,3 +2,5 @@ pandas
 pyarrow
 scikit-learn
 torch
+fastapi
+uvicorn

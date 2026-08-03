@@ -306,7 +306,38 @@ maçtaki karşılıklı rakipleri bulmak için bu hizalama kullanılacak (Model 
 - [ ] Milestone 4: Feature Engineering (temel kavramlar + ilk feature seti)
 - [ ] Milestone 5: Problem framing (classification/regression/ranking ayrımı)
 - [x] Milestone 6: Model 1 - Counter Pick Recommendation Engine
-- [ ] Milestone 7+: Diğer modeller, Decision Engine, Backend, Frontend
+- [x] Milestone 7: Model 2+3+4 - Matchup Intelligence + Item + Rune Önerisi
+- [x] Milestone 8: Backend (FastAPI) + Frontend (saf HTML/CSS/JS) - Model 1 ve
+      Model 2'yi tarayıcıdan kullanılabilir hale getiren yerel web arayüzü
+- [ ] Milestone 9+: Diğer modeller (Ban Recommendation, Team Composition
+      Analyzer, Draft Assistant), Decision Engine
 - [ ] (ileride) Kendi Riot API crawler'ımızı kurup gerçek veri toplama pipeline'ına geçiş
 
 Detaylar her milestone'a gelindiğinde bu dosyaya eklenecek.
+
+## Backend + Frontend (backend/, frontend/)
+
+Model 1 ve Model 2'yi tarayıcıdan kullanılabilir hale getiren yerel web
+arayüzü. Mimari:
+
+- **Backend (`backend/main.py`, FastAPI):** Uygulama açılışında (bkz.
+  `lifespan`) tüm parquet/json veriler ve champion/item/rune ikon URL'leri
+  **bir kez** belleğe yükleniyor - her istekte diskten tekrar okuma yok.
+  3 endpoint: `/api/champions` (autocomplete için tüm şampiyon listesi +
+  ikonlar), `/api/counters` (Model 1), `/api/matchup` (Model 2). Aynı
+  process, derlenmiş frontend dosyalarını da `StaticFiles` ile `/` altında
+  sunuyor - ayrı bir web sunucusuna gerek yok.
+- **Frontend (`frontend/`):** Saf HTML/CSS/JS, npm/build adımı yok. Koyu
+  tema + glassmorphism görünüm, şampiyon arama için canlı filtrelenen bir
+  autocomplete bileşeni, iki sekme (Counter Pick / Matchup Intelligence).
+  Şampiyon, item ve rün ikonları gerçek zamanlı olarak Community Dragon
+  CDN'inden çekiliyor (`feature_engineering/external_data.py` içindeki
+  `load_champion_icons` / `load_item_icons` / `load_perk_icons`).
+- **Çalıştırma:** `calistir.bat -m uvicorn backend.main:app --reload`
+  (venv'i aktive edip uvicorn'u çalıştırır), sonra tarayıcıda
+  `http://127.0.0.1:8000` açılır.
+- **Kapsam dışı bırakılan:** kimlik doğrulama/kullanıcı hesabı yok (kişisel,
+  tek kullanıcılı proje); alias-öğrenme sistemi (CLI'daki "heim" →
+  "Heimerdinger" mekanizması) web'de yok çünkü autocomplete zaten yazım
+  hatasını engelliyor - dropdown'dan seçim yapılıyor, serbest metin girişi
+  yok.

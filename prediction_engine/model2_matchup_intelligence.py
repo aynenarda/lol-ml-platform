@@ -69,7 +69,11 @@ def load_model2_data():
 
 def _translate_items(item_list, item_names):
     return [
-        {"name": item_names.get(it["item_id"], f"ID:{it['item_id']}"), "pick_rate": it["pick_rate"]}
+        {
+            "item_id": it["item_id"],
+            "name": item_names.get(it["item_id"], f"ID:{it['item_id']}"),
+            "pick_rate": it["pick_rate"],
+        }
         for it in item_list
     ]
 
@@ -77,6 +81,7 @@ def _translate_items(item_list, item_names):
 def _translate_rune_combo(combo, perk_names):
     return {
         "perks": {slot: perk_names.get(pid, f"ID:{pid}") for slot, pid in combo["perk_ids"].items()},
+        "perk_ids": combo["perk_ids"],
         "pick_rate": combo["pick_rate"],
     }
 

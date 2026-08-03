@@ -105,3 +105,51 @@ def load_perk_names(path="data/external/perks.json"):
     with open(path, encoding="utf-8") as f:
         perks = json.load(f)
     return {perk["id"]: perk["name"] for perk in perks}
+
+
+def load_perk_icons(path="data/external/perks.json"):
+    """Rune/perk ID -> ikon URL'si sozlugu (sadece frontend gorseli icin)."""
+    with open(path, encoding="utf-8") as f:
+        perks = json.load(f)
+    return {perk["id"]: _cdragon_url(perk["iconPath"]) for perk in perks}
+
+
+CDRAGON_BASE = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
+# Community Dragon'un game-data asset path'leri "/lol-game-data/assets/..."
+# ile basliyor ama gercek CDN URL'sinde bu on-ek yok ve yol kucuk harfli -
+# curl ile dogrulandi (buyuk/kucuk harf farkinda, on-ekli hali 404 donuyor).
+_ASSET_PREFIX = "/lol-game-data/assets"
+
+
+def _cdragon_url(asset_path):
+    path = asset_path.lower()
+    if path.startswith(_ASSET_PREFIX):
+        path = path[len(_ASSET_PREFIX):]
+    return CDRAGON_BASE + path
+
+
+def load_champion_icons(path="data/external/champion_summary.json"):
+    """Sampiyon adindan (Riot 'alias') kare ikon URL'sine sozluk - sadece
+    frontend'de gorsel icin, Community Dragon'un kendi squarePortraitPath
+    alanindan turetiliyor."""
+    with open(path, encoding="utf-8") as f:
+        champions = json.load(f)
+
+    icons = {
+        champ["alias"]: _cdragon_url(champ["squarePortraitPath"])
+        for champ in champions
+        if champ["alias"] != "None"
+    }
+
+    for our_name, meraki_name in NAME_FIXES.items():
+        if meraki_name in icons:
+            icons[our_name] = icons[meraki_name]
+
+    return icons
+
+
+def load_item_icons(path="data/external/items.json"):
+    """Item ID -> ikon URL'si sozlugu (sadece frontend gorseli icin)."""
+    with open(path, encoding="utf-8") as f:
+        items = json.load(f)
+    return {item["id"]: _cdragon_url(item["iconPath"]) for item in items}
